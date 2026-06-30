@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+  HALF_DAY
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  password      String
+  name          String
+  employeeId    String         @unique @map("employee_id")
+  department    String?
+  role          Role           @default(EMPLOYEE)
+  isActive      Boolean        @default(true) @map("is_active")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  attendances   Attendance[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  jti       String   @unique
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model AllowedIp {
+  id          String   @id @default(cuid())
+  ipAddress   String   @unique @map("ip_address")
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("allowed_ips")
+}
+
+model Attendance {
+  id                  String            @id @default(cuid())
+  userId              String            @map("user_id")
+  date                DateTime          @db.Date
+  morningCheckIn      DateTime?         @map("morning_check_in")
+  morningCheckOut     DateTime?         @map("morning_check_out")
+  afternoonCheckIn    DateTime?         @map("afternoon_check_in")
+  afternoonCheckOut   DateTime?         @map("afternoon_check_out")
+  morningStatus       AttendanceStatus? @map("morning_status")
+  afternoonStatus     AttendanceStatus? @map("afternoon_status")
+  checkInIp           String?           @map("check_in_ip")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([date])
+  @@index([checkInIp, date])
+  @@map("attendances")
+}
