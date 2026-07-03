@@ -22,14 +22,27 @@ export interface ApiResponse<T = unknown> {
   requestId?: string;
 }
 
-export type SessionType = "MORNING" | "AFTERNOON";
-export type ActionType = "CHECK_IN" | "CHECK_OUT";
+export type PunchType = "MORNING_IN" | "LUNCH_OUT" | "LUNCH_RETURN" | "FINAL_OUT";
+
+export interface StepSchedule {
+  enabled: boolean;
+  message: string;
+  recorded: boolean;
+}
+
+export interface AttendanceSchedule {
+  currentEatTime: string;
+  ethiopianDate: string;
+  ethiopianDateLabel: string;
+  steps: Record<PunchType, StepSchedule>;
+}
 
 export interface AttendanceSummary {
   totalEmployees: number;
   presentToday: number;
   absentToday: number;
   lateToday: number;
+  lunchMissingToday: number;
 }
 
 export { AttendanceStatus, Role };

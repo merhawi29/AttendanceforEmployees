@@ -54,8 +54,7 @@ export const refreshSchema = z.object({
 
 export const attendanceActionSchema = z.object({
   body: z.object({
-    session: z.enum(["MORNING", "AFTERNOON"]),
-    action: z.enum(["CHECK_IN", "CHECK_OUT"]),
+    punch: z.enum(["MORNING_IN", "LUNCH_OUT", "LUNCH_RETURN", "FINAL_OUT"]),
   }),
 });
 

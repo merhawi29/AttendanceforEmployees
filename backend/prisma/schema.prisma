@@ -17,6 +17,7 @@ enum AttendanceStatus {
   LATE
   ABSENT
   HALF_DAY
+  LUNCH_MISSING
 }
 
 model User {
@@ -59,22 +60,23 @@ model AllowedIp {
 }
 
 model Attendance {
-  id                  String            @id @default(cuid())
-  userId              String            @map("user_id")
-  date                DateTime          @db.Date
-  morningCheckIn      DateTime?         @map("morning_check_in")
-  morningCheckOut     DateTime?         @map("morning_check_out")
-  afternoonCheckIn    DateTime?         @map("afternoon_check_in")
-  afternoonCheckOut   DateTime?         @map("afternoon_check_out")
-  morningStatus       AttendanceStatus? @map("morning_status")
-  afternoonStatus     AttendanceStatus? @map("afternoon_status")
-  checkInIp           String?           @map("check_in_ip")
-  createdAt           DateTime          @default(now()) @map("created_at")
-  updatedAt           DateTime          @updatedAt @map("updated_at")
-  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String            @id @default(cuid())
+  userId        String            @map("user_id")
+  date          DateTime          @db.Date
+  ethiopianDate String            @map("ethiopian_date") @db.VarChar(10)
+  morningIn     DateTime?         @map("morning_in")
+  lunchOut      DateTime?         @map("lunch_out")
+  lunchReturn   DateTime?         @map("lunch_return")
+  finalOut      DateTime?         @map("final_out")
+  status        AttendanceStatus?
+  ipAddress     String?           @map("ip_address")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, date])
   @@index([date])
-  @@index([checkInIp, date])
+  @@index([ethiopianDate])
+  @@index([ipAddress, date])
   @@map("attendances")
 }

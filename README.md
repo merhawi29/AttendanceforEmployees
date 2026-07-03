@@ -1,6 +1,6 @@
 # AttendPro - Attendance Management System
 
-A full-stack employee attendance management system with morning/afternoon sessions, JWT authentication, role-based access, and IP address restrictions.
+A full-stack employee attendance management system with Ethiopian calendar workflow, JWT authentication, role-based access, and IP address restrictions.
 
 ## Tech Stack
 
@@ -10,6 +10,24 @@ A full-stack employee attendance management system with morning/afternoon sessio
 | Backend  | Node.js, Express, TypeScript        |
 | Database | MySQL with Prisma ORM               |
 | Auth     | JWT (access + refresh tokens), role-based access |
+
+## Ethiopian Attendance Workflow (EAT, UTC+3)
+
+| Step | Window | Rule |
+|------|--------|------|
+| Morning Arrival (Check In) | 02:30 – 02:45 | `PRESENT` if checked in; auto `ABSENT` after 02:45 |
+| Lunch Break (Lunch Out) | From 06:30 | No closing time |
+| Return From Lunch | Before 07:30 | `LUNCH_MISSING` if not returned by 07:30 |
+| Work End (Check Out) | From 11:30 | Disabled before 11:30 |
+
+## Features
+
+- **Employee Attendance** — Four-step daily workflow with Ethiopian time validation
+- **Ethiopian Calendar** — Records stored with `ethiopianDate` alongside Gregorian date
+- **Admin Dashboard** — Stats, attendance records, employee & IP management
+- **JWT Authentication** — Access tokens with refresh token rotation
+- **Role-Based Access** — Separate ADMIN and EMPLOYEE portals
+- **IP Restriction** — Attendance only allowed from whitelisted office IPs
 
 ## Project Structure
 
@@ -41,16 +59,6 @@ A full-stack employee attendance management system with morning/afternoon sessio
 │       └── types/              # Frontend types
 └── README.md
 ```
-
-## Features
-
-- **Employee Attendance** — Morning and afternoon check-in/check-out sessions
-- **Admin Dashboard** — Real-time stats, attendance records, employee & IP management
-- **JWT Authentication** — Access tokens with refresh token rotation
-- **Role-Based Access** — Separate ADMIN and EMPLOYEE portals
-- **IP Restriction** — Attendance only allowed from whitelisted office IPs
-- **Late Detection** — Automatic LATE status based on configurable thresholds
-- **Session Windows** — Check-in restricted to defined morning/afternoon time windows
 
 ## Prerequisites
 
@@ -98,8 +106,8 @@ App runs at `http://localhost:3000`.
 
 | Role     | Email                  | Password       |
 |----------|------------------------|----------------|
-| Admin    | admin@company.com      | Admin123!      |
-| Employee | john.doe@company.com   | Employee123!   |
+| Admin    | admin@company.com      | admin123       |
+| Employee | john.doe@company.com   | employee123    |
 
 ## API Endpoints
 
@@ -114,8 +122,8 @@ App runs at `http://localhost:3000`.
 ### Attendance
 | Method | Endpoint               | Access   | Description             |
 |--------|------------------------|----------|-------------------------|
-| POST   | /api/attendance/check  | Employee | Check in/out (IP gated) |
-| GET    | /api/attendance/today  | Auth     | Today's attendance      |
+| POST   | /api/attendance/check  | Employee | Record punch: `MORNING_IN`, `LUNCH_OUT`, `LUNCH_RETURN`, `FINAL_OUT` |
+| GET    | /api/attendance/today  | Auth     | Today's attendance + schedule (button states) |
 | GET    | /api/attendance/history| Auth     | Personal history        |
 | GET    | /api/attendance/all    | Admin    | All attendance records  |
 | GET    | /api/attendance/stats  | Admin    | Dashboard statistics    |

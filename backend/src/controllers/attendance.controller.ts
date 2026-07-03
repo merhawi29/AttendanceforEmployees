@@ -6,33 +6,31 @@ import { asyncHandler, sendSuccess } from "../utils/response";
 import { logger } from "../utils/logger";
 
 export const recordAttendance = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { session, action } = req.body;
+  const { punch } = req.body;
   const ipAddress = getClientIp(req);
 
-  const attendance = await attendanceService.recordAction({
+  const result = await attendanceService.recordAction({
     userId: req.user!.userId,
-    session,
-    action,
+    punch,
     ipAddress,
   });
 
   logger.info(
     {
       userId: req.user!.userId,
-      session,
-      action,
+      punch,
       ipAddress,
       requestId: req.requestId,
     },
     "attendance recorded"
   );
 
-  sendSuccess(res, attendance, `${session} ${action.replace("_", " ").toLowerCase()} recorded`);
+  sendSuccess(res, result, result.message);
 });
 
 export const getMyToday = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const attendance = await attendanceService.getMyToday(req.user!.userId);
-  sendSuccess(res, attendance, "Today's attendance retrieved");
+  const result = await attendanceService.getMyToday(req.user!.userId);
+  sendSuccess(res, result, "Today's attendance retrieved");
 });
 
 export const getMyHistory = asyncHandler(async (req: AuthRequest, res: Response) => {

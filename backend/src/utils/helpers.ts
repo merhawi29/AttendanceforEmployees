@@ -1,8 +1,11 @@
 import { User } from "@prisma/client";
-import { SessionType } from "../types";
-import { config } from "../config";
+import { getTodayGregorianDate } from "./ethiopian-time";
 
-export const getClientIp = (req: { headers: Record<string, string | string[] | undefined>; socket: { remoteAddress?: string | null }; ip?: string }): string => {
+export const getClientIp = (req: {
+  headers: Record<string, string | string[] | undefined>;
+  socket: { remoteAddress?: string | null };
+  ip?: string;
+}): string => {
   const forwarded = req.headers["x-forwarded-for"];
   if (typeof forwarded === "string") {
     return forwarded.split(",")[0].trim();
@@ -20,46 +23,9 @@ export const normalizeIp = (ip: string): string => {
   return ip;
 };
 
-export const getTodayDate = (): Date => {
-  const now = new Date();
-  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-};
+export const getTodayDate = (): Date => getTodayGregorianDate();
 
-export const formatDate = (date: Date): string => {
-  return date.toISOString().split("T")[0];
-};
-
-export const isLate = (
-  checkInTime: Date,
-  lateAfterHour: number,
-  lateAfterMinute: number
-): boolean => {
-  const lateThreshold = new Date(checkInTime);
-  lateThreshold.setHours(lateAfterHour, lateAfterMinute, 0, 0);
-  return checkInTime > lateThreshold;
-};
-
-export const isWithinSessionWindow = (session: SessionType, now: Date = new Date()): boolean => {
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const window =
-    session === "MORNING"
-      ? {
-          start: config.morning.startHour * 60 + config.morning.startMinute,
-          end: config.morning.endHour * 60 + config.morning.endMinute,
-        }
-      : {
-          start: config.afternoon.startHour * 60 + config.afternoon.startMinute,
-          end: config.afternoon.endHour * 60 + config.afternoon.endMinute,
-        };
-
-  return currentMinutes >= window.start && currentMinutes <= window.end;
-};
-
-export const getSessionWindowLabel = (session: SessionType): string => {
-  const window = session === "MORNING" ? config.morning : config.afternoon;
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${pad(window.startHour)}:${pad(window.startMinute)} - ${pad(window.endHour)}:${pad(window.endMinute)}`;
-};
+export const formatDate = (date: Date): string => date.toISOString().split("T")[0];
 
 export const omitPassword = <T extends { password?: string }>(
   user: T

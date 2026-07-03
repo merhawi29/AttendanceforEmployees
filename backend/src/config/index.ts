@@ -17,25 +17,29 @@ export const config = {
   jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || "fallback-refresh-secret-change-me",
   jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
   jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
-  corsOrigin: process.env.CORS_ORIGIN || "http://localhost:3000",
+  corsOrigin: process.env.CORS_ORIGIN || "http://localhost:3001",
   ipRestrictionEnabled: process.env.IP_RESTRICTION_ENABLED !== "false",
   cookieDomain: process.env.COOKIE_DOMAIN || undefined,
   logLevel: process.env.LOG_LEVEL || "info",
-  morning: {
-    startHour: 6,
-    startMinute: 0,
-    endHour: 12,
-    endMinute: 0,
-    lateAfterHour: 9,
-    lateAfterMinute: 15,
-  },
-  afternoon: {
-    startHour: 12,
-    startMinute: 0,
-    endHour: 18,
-    endMinute: 0,
-    lateAfterHour: 13,
-    lateAfterMinute: 15,
+  attendance: {
+    morningIn: {
+      startHour: 8,
+      startMinute: 30,
+      endHour: 8,
+      endMinute: 45,
+    },
+    lunchOut: {
+      startHour: 12,
+      startMinute: 30,
+    },
+    lunchReturn: {
+      deadlineHour: 13,
+      deadlineMinute: 30,
+    },
+    finalOut: {
+      startHour: 17,
+      startMinute: 30,
+    },
   },
 };
 
