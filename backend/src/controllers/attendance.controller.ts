@@ -63,3 +63,9 @@ export const getDashboardStats = asyncHandler(async (_req: AuthRequest, res: Res
   const stats = await attendanceService.getDashboardStats();
   sendSuccess(res, stats, "Dashboard stats retrieved");
 });
+
+export const getSettings = asyncHandler(async (_req: AuthRequest, res: Response) => {
+  const { settingsService } = await import("../services/settings.service");
+  const settings = await settingsService.getSettings();
+  sendSuccess(res, settings, "Settings retrieved");
+});

@@ -100,3 +100,55 @@ export const idParamSchema = z.object({
     id: cuidSchema,
   }),
 });
+
+export const adminResetPasswordSchema = z.object({
+  body: z.object({
+    userId: cuidSchema,
+    newPassword: passwordSchema,
+  }),
+});
+
+export const changePasswordSchema = z.object({
+  body: z.object({
+    oldPassword: z.string().min(1, "Old password is required"),
+    newPassword: passwordSchema,
+  }),
+});
+
+export const forgotPasswordSchema = z.object({
+  body: z.object({
+    email: z.string().trim().email("Invalid email address"),
+  }),
+});
+
+export const resetPasswordSchema = z.object({
+  body: z.object({
+    token: z.string().min(1, "Token is required"),
+    newPassword: passwordSchema,
+  }),
+});
+
+export const settingsSchema = z.object({
+  body: z.object({
+    morningCheckInStart: z.string().regex(/^\d{2}:\d{2}$/, "Format must be HH:MM"),
+    morningCheckInEnd: z.string().regex(/^\d{2}:\d{2}$/, "Format must be HH:MM"),
+    lunchStartTime: z.string().regex(/^\d{2}:\d{2}$/, "Format must be HH:MM"),
+    lunchReturnDeadline: z.string().regex(/^\d{2}:\d{2}$/, "Format must be HH:MM"),
+    workEndTime: z.string().regex(/^\d{2}:\d{2}$/, "Format must be HH:MM"),
+    gracePeriodMinutes: z.number().int().min(0).max(120),
+  }),
+});
+
+export const adminEditAttendanceSchema = z.object({
+  body: z.object({
+    morningIn: z.string().nullable().optional(),
+    lunchOut: z.string().nullable().optional(),
+    lunchReturn: z.string().nullable().optional(),
+    finalOut: z.string().nullable().optional(),
+    status: z.enum(["PRESENT", "LATE", "ABSENT", "HALF_DAY", "LUNCH_MISSING"]).nullable().optional(),
+  }),
+  params: z.object({
+    id: cuidSchema,
+  }),
+});
+

@@ -1,6 +1,8 @@
 import { Response } from "express";
 import { AuthRequest } from "../types";
 import { userService, ipService } from "../services/admin.service";
+import { settingsService } from "../services/settings.service";
+import { attendanceService } from "../services/attendance.service";
 import { asyncHandler, sendSuccess } from "../utils/response";
 
 export const getUsers = asyncHandler(async (_req: AuthRequest, res: Response) => {
@@ -36,4 +38,30 @@ export const toggleAllowedIp = asyncHandler(async (req: AuthRequest, res: Respon
 export const deleteAllowedIp = asyncHandler(async (req: AuthRequest, res: Response) => {
   await ipService.remove(String(req.params.id));
   sendSuccess(res, null, "IP address removed");
+});
+
+export const resetPassword = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { userId, newPassword } = req.body;
+  await userService.resetPassword(userId, newPassword, req.user!.userId);
+  sendSuccess(res, null, "User password reset successfully");
+});
+
+export const getSettings = asyncHandler(async (_req: AuthRequest, res: Response) => {
+  const settings = await settingsService.getSettings();
+  sendSuccess(res, settings, "Settings retrieved");
+});
+
+export const updateSettings = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const settings = await settingsService.updateSettings(req.body);
+  sendSuccess(res, settings, "Settings updated");
+});
+
+export const editAttendance = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const result = await attendanceService.adminEditAttendance(String(req.params.id), req.body);
+  sendSuccess(res, result, "Attendance record updated successfully");
+});
+
+export const getUserSummary = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const summary = await userService.getUserSummary(String(req.params.id));
+  sendSuccess(res, summary, "User attendance summary retrieved");
 });

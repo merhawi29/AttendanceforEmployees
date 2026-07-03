@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import prisma from "../config/database";
 import { formatUserResponse } from "../utils/helpers";
 import { AppError } from "../utils/response";
@@ -74,6 +75,56 @@ export const userService = {
 
     await prisma.user.delete({ where: { id } });
     logger.info({ userId: id, actorId }, "user deleted");
+  },
+
+  async resetPassword(userId: string, newPassword: string, actorId?: string) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new AppError(404, "User not found", undefined, "USER_NOT_FOUND");
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    // Force user to log in again by deleting all refresh tokens
+    await prisma.refreshToken.deleteMany({ where: { userId } });
+
+    logger.info({ userId, actorId }, "user password reset by admin");
+  },
+
+  async getUserSummary(userId: string) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new AppError(404, "User not found", undefined, "USER_NOT_FOUND");
+    }
+
+    const records = await prisma.attendance.findMany({
+      where: { userId },
+    });
+
+    const totalPresentDays = records.filter((r) => r.status === "PRESENT").length;
+    const totalLateDays = records.filter((r) => r.status === "LATE").length;
+    const totalAbsentDays = records.filter((r) => r.status === "ABSENT").length;
+    const totalDays = totalPresentDays + totalLateDays + totalAbsentDays;
+    const attendancePercentage = totalDays > 0
+      ? Math.round(((totalPresentDays + totalLateDays) / totalDays) * 100)
+      : 100;
+
+    return {
+      employeeCode: user.employeeId,
+      department: user.department,
+      email: user.email,
+      phone: "—",
+      hireDate: user.createdAt.toISOString().split("T")[0],
+      attendancePercentage,
+      totalPresentDays,
+      totalLateDays,
+      totalAbsentDays,
+    };
   },
 };
 

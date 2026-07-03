@@ -34,6 +34,9 @@ model User {
   attendances   Attendance[]
   refreshTokens RefreshToken[]
 
+  resetToken    String?        @map("reset_token")
+  resetExpire   DateTime?      @map("reset_expire")
+
   @@map("users")
 }
 
@@ -79,4 +82,12 @@ model Attendance {
   @@index([ethiopianDate])
   @@index([ipAddress, date])
   @@map("attendances")
+}
+
+model SystemSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String @db.Text
+
+  @@map("system_settings")
 }

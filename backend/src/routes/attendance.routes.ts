@@ -10,6 +10,8 @@ const router = Router();
 
 router.use(authenticate);
 
+router.get("/settings", attendanceController.getSettings);
+
 router.post(
   "/check",
   ipRestriction,

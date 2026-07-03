@@ -1,6 +1,7 @@
 import { Attendance, AttendanceStatus, Prisma } from "@prisma/client";
 import prisma from "../config/database";
 import { config } from "../config";
+import { settingsService } from "./settings.service";
 import { AttendanceSchedule, PunchType } from "../types";
 import { getTodayDate } from "../utils/helpers";
 import {
@@ -37,6 +38,55 @@ type AttendanceRecord = Attendance & {
   };
 };
 
+const parseTimeStr = (timeStr: string) => {
+  const [hour, minute] = timeStr.split(":").map(Number);
+  return { hour, minute };
+};
+
+const getWindowConfig = () => {
+  const dbSettings = settingsService.getSettingsSync();
+  const morningStart = parseTimeStr(dbSettings.morningCheckInStart);
+  const morningEnd = parseTimeStr(dbSettings.morningCheckInEnd);
+  const lunchStart = parseTimeStr(dbSettings.lunchStartTime);
+  const lunchReturn = parseTimeStr(dbSettings.lunchReturnDeadline);
+  const finalOut = parseTimeStr(dbSettings.workEndTime);
+
+  return {
+    morningInStart: toMinutes(morningStart.hour, morningStart.minute),
+    morningInEnd: toMinutes(morningEnd.hour, morningEnd.minute),
+    lunchOutStart: toMinutes(lunchStart.hour, lunchStart.minute),
+    lunchReturnDeadline: toMinutes(lunchReturn.hour, lunchReturn.minute),
+    finalOutStart: toMinutes(finalOut.hour, finalOut.minute),
+    gracePeriodMinutes: dbSettings.gracePeriodMinutes,
+    labels: {
+      morningIn: `${formatTimeLabel(morningStart.hour, morningStart.minute)} - ${formatTimeLabel(morningEnd.hour, morningEnd.minute)}`,
+      lunchOut: `after ${formatTimeLabel(lunchStart.hour, lunchStart.minute)}`,
+      lunchReturn: `before ${formatTimeLabel(lunchReturn.hour, lunchReturn.minute)}`,
+      finalOut: `after ${formatTimeLabel(finalOut.hour, finalOut.minute)}`,
+    },
+    raw: {
+      morningIn: {
+        startHour: morningStart.hour,
+        startMinute: morningStart.minute,
+        endHour: morningEnd.hour,
+        endMinute: morningEnd.minute,
+      },
+      lunchOut: {
+        startHour: lunchStart.hour,
+        startMinute: lunchStart.minute,
+      },
+      lunchReturn: {
+        deadlineHour: lunchReturn.hour,
+        deadlineMinute: lunchReturn.minute,
+      },
+      finalOut: {
+        startHour: finalOut.hour,
+        startMinute: finalOut.minute,
+      },
+    },
+  };
+};
+
 const formatAttendance = (attendance: AttendanceRecord) => {
   const hasAnyPunch = !!(
     attendance.morningIn ||
@@ -48,22 +98,25 @@ const formatAttendance = (attendance: AttendanceRecord) => {
   let computedStatus: string | null = attendance.status;
 
   if (hasAnyPunch) {
-    let targetStatus = "PRESENT";
-    if (attendance.morningIn) {
-      const morningInDate = new Date(attendance.morningIn);
-      const morningMinutes = morningInDate.getHours() * 60 + morningInDate.getMinutes();
-      if (morningMinutes > 8 * 60 + 45) {
-        targetStatus = "LATE";
+    if (!attendance.status) {
+      let targetStatus = "PRESENT";
+      const windows = getWindowConfig();
+      if (attendance.morningIn) {
+        const morningInDate = new Date(attendance.morningIn);
+        const morningMinutes = morningInDate.getHours() * 60 + morningInDate.getMinutes();
+        if (morningMinutes > windows.morningInEnd) {
+          targetStatus = "LATE";
+        }
       }
-    }
-    if (attendance.lunchReturn) {
-      const lunchReturnDate = new Date(attendance.lunchReturn);
-      const lunchReturnMinutes = lunchReturnDate.getHours() * 60 + lunchReturnDate.getMinutes();
-      if (lunchReturnMinutes > 13 * 60 + 45) {
-        targetStatus = "LATE";
+      if (attendance.lunchReturn) {
+        const lunchReturnDate = new Date(attendance.lunchReturn);
+        const lunchReturnMinutes = lunchReturnDate.getHours() * 60 + lunchReturnDate.getMinutes();
+        if (lunchReturnMinutes > windows.lunchReturnDeadline + windows.gracePeriodMinutes) {
+          targetStatus = "LATE";
+        }
       }
+      computedStatus = targetStatus;
     }
-    computedStatus = targetStatus;
   } else {
     const today = getTodayDate();
     const recordDate = new Date(attendance.date);
@@ -108,24 +161,6 @@ const formatAttendance = (attendance: AttendanceRecord) => {
   };
 };
 
-const getWindowConfig = () => {
-  const { morningIn, lunchOut, lunchReturn, finalOut } = config.attendance;
-
-  return {
-    morningInStart: toMinutes(morningIn.startHour, morningIn.startMinute),
-    morningInEnd: toMinutes(morningIn.endHour, morningIn.endMinute),
-    lunchOutStart: toMinutes(lunchOut.startHour, lunchOut.startMinute),
-    lunchReturnDeadline: toMinutes(lunchReturn.deadlineHour, lunchReturn.deadlineMinute),
-    finalOutStart: toMinutes(finalOut.startHour, finalOut.startMinute),
-    labels: {
-      morningIn: `${formatTimeLabel(morningIn.startHour, morningIn.startMinute)} - ${formatTimeLabel(morningIn.endHour, morningIn.endMinute)}`,
-      lunchOut: `after ${formatTimeLabel(lunchOut.startHour, lunchOut.startMinute)}`,
-      lunchReturn: `before ${formatTimeLabel(lunchReturn.deadlineHour, lunchReturn.deadlineMinute)}`,
-      finalOut: `after ${formatTimeLabel(finalOut.startHour, finalOut.startMinute)}`,
-    },
-  };
-};
-
 const buildSchedule = (attendance: Attendance | null, now: Date = new Date()): AttendanceSchedule => {
   const minutes = getMinutesSinceMidnightEat(now);
   const windows = getWindowConfig();
@@ -144,7 +179,7 @@ const buildSchedule = (attendance: Attendance | null, now: Date = new Date()): A
   if (hasMorningIn) {
     morningIn.message = "Morning check-in recorded";
   } else if (minutes < windows.morningInStart) {
-    morningIn.message = `Check-in available from ${formatTimeLabel(config.attendance.morningIn.startHour, config.attendance.morningIn.startMinute)}`;
+    morningIn.message = `Check-in available from ${formatTimeLabel(windows.raw.morningIn.startHour, windows.raw.morningIn.startMinute)}`;
   } else {
     morningIn.enabled = true;
     if (minutes <= windows.morningInEnd) {
@@ -164,7 +199,7 @@ const buildSchedule = (attendance: Attendance | null, now: Date = new Date()): A
   } else if (hasLunchOut) {
     lunchOut.message = "Lunch out recorded";
   } else if (minutes < windows.lunchOutStart) {
-    lunchOut.message = `Lunch out available after ${formatTimeLabel(config.attendance.lunchOut.startHour, config.attendance.lunchOut.startMinute)}`;
+    lunchOut.message = `Lunch out available after ${formatTimeLabel(windows.raw.lunchOut.startHour, windows.raw.lunchOut.startMinute)}`;
   } else {
     lunchOut.enabled = true;
     lunchOut.message = "Record lunch break";
@@ -182,8 +217,8 @@ const buildSchedule = (attendance: Attendance | null, now: Date = new Date()): A
   } else {
     lunchReturn.enabled = true;
     if (minutes <= windows.lunchReturnDeadline) {
-      lunchReturn.message = `Return before ${formatTimeLabel(config.attendance.lunchReturn.deadlineHour, config.attendance.lunchReturn.deadlineMinute)}`;
-    } else if (minutes <= 13 * 60 + 45) {
+      lunchReturn.message = `Return before ${formatTimeLabel(windows.raw.lunchReturn.deadlineHour, windows.raw.lunchReturn.deadlineMinute)}`;
+    } else if (minutes <= windows.lunchReturnDeadline + windows.gracePeriodMinutes) {
       lunchReturn.message = "Lunch return (grace period)";
     } else {
       lunchReturn.message = "Lunch return (marked late)";
@@ -200,7 +235,7 @@ const buildSchedule = (attendance: Attendance | null, now: Date = new Date()): A
   } else if (hasFinalOut) {
     finalOut.message = "Final checkout recorded";
   } else if (minutes < windows.finalOutStart) {
-    finalOut.message = `Checkout available after ${formatTimeLabel(config.attendance.finalOut.startHour, config.attendance.finalOut.startMinute)}`;
+    finalOut.message = `Checkout available after ${formatTimeLabel(windows.raw.finalOut.startHour, windows.raw.finalOut.startMinute)}`;
   } else {
     finalOut.enabled = true;
     finalOut.message = "Record end of workday";
@@ -233,21 +268,24 @@ const applyAutomaticStatus = async (
   const updates: Prisma.AttendanceUpdateInput = {};
 
   if (hasAnyPunch) {
-    let targetStatus: AttendanceStatus = "PRESENT";
-    if (attendance.morningIn) {
-      const morningMinutes = attendance.morningIn.getHours() * 60 + attendance.morningIn.getMinutes();
-      if (morningMinutes > 8 * 60 + 45) {
-        targetStatus = "LATE";
+    if (!attendance.status) {
+      let targetStatus: AttendanceStatus = "PRESENT";
+      const windows = getWindowConfig();
+      if (attendance.morningIn) {
+        const morningMinutes = attendance.morningIn.getHours() * 60 + attendance.morningIn.getMinutes();
+        if (morningMinutes > windows.morningInEnd) {
+          targetStatus = "LATE";
+        }
       }
-    }
-    if (attendance.lunchReturn) {
-      const lunchReturnMinutes = attendance.lunchReturn.getHours() * 60 + attendance.lunchReturn.getMinutes();
-      if (lunchReturnMinutes > 13 * 60 + 45) {
-        targetStatus = "LATE";
+      if (attendance.lunchReturn) {
+        const lunchReturnMinutes = attendance.lunchReturn.getHours() * 60 + attendance.lunchReturn.getMinutes();
+        if (lunchReturnMinutes > windows.lunchReturnDeadline + windows.gracePeriodMinutes) {
+          targetStatus = "LATE";
+        }
       }
-    }
-    if (attendance.status !== targetStatus) {
-      updates.status = targetStatus;
+      if (attendance.status !== targetStatus) {
+        updates.status = targetStatus;
+      }
     }
   } else {
     if (attendance.status !== null) {
@@ -305,12 +343,12 @@ const validatePunch = (
       if (minutes < windows.morningInStart) {
         throw new AppError(
           400,
-          `Morning check-in opens at ${formatTimeLabel(config.attendance.morningIn.startHour, config.attendance.morningIn.startMinute)}`,
+          `Morning check-in opens at ${formatTimeLabel(windows.raw.morningIn.startHour, windows.raw.morningIn.startMinute)}`,
           undefined,
           "OUTSIDE_TIME_WINDOW"
         );
       }
-      const isLate = minutes > windows.morningInEnd; // after 08:45 AM
+      const isLate = minutes > windows.morningInEnd; // after morning check-in end
       return {
         data: {
           morningIn: now,
@@ -329,7 +367,7 @@ const validatePunch = (
       if (minutes < windows.lunchOutStart) {
         throw new AppError(
           400,
-          `Lunch out is available after ${formatTimeLabel(config.attendance.lunchOut.startHour, config.attendance.lunchOut.startMinute)}`,
+          `Lunch out is available after ${formatTimeLabel(windows.raw.lunchOut.startHour, windows.raw.lunchOut.startMinute)}`,
           undefined,
           "OUTSIDE_TIME_WINDOW"
         );
@@ -346,7 +384,7 @@ const validatePunch = (
       if (attendance.lunchReturn) {
         throw new AppError(409, "Lunch return already recorded", undefined, "DUPLICATE_PUNCH");
       }
-      const isLate = minutes > 13 * 60 + 45; // after 01:45 PM (13:45)
+      const isLate = minutes > windows.lunchReturnDeadline + windows.gracePeriodMinutes; // after deadline + grace period
       return {
         data: {
           lunchReturn: now,
@@ -365,7 +403,7 @@ const validatePunch = (
       if (minutes < windows.finalOutStart) {
         throw new AppError(
           400,
-          `Checkout is available after ${formatTimeLabel(config.attendance.finalOut.startHour, config.attendance.finalOut.startMinute)}`,
+          `Checkout is available after ${formatTimeLabel(windows.raw.finalOut.startHour, windows.raw.finalOut.startMinute)}`,
           undefined,
           "OUTSIDE_TIME_WINDOW"
         );
@@ -559,14 +597,19 @@ export const attendanceService = {
         record.finalOut !== null
     ).length;
 
-    const lateToday = todayAttendances.filter((record) => record.morningIn !== null && record.morningIn > new Date(record.date.setHours(8, 30))).length;
+    const windows = getWindowConfig();
+    const lateToday = todayAttendances.filter((record) => {
+      if (record.morningIn === null) return false;
+      const morningMinutes = record.morningIn.getHours() * 60 + record.morningIn.getMinutes();
+      return morningMinutes > windows.morningInEnd;
+    }).length;
+
     const lunchMissingToday = todayAttendances.filter(
       (record) => record.morningIn !== null && record.lunchOut !== null && record.lunchReturn === null
     ).length;
 
     const now = new Date();
     const minutes = getMinutesSinceMidnightEat(now);
-    const windows = getWindowConfig();
     const isAfterWork = minutes >= windows.finalOutStart;
     const absentToday = isAfterWork ? (totalEmployees - presentToday) : 0;
 
@@ -582,5 +625,49 @@ export const attendanceService = {
       ethiopianDate: formattedDate,
       ethiopianDateLabel: formattedDate,
     };
+  },
+
+  async adminEditAttendance(
+    id: string,
+    data: {
+      morningIn?: string | null;
+      lunchOut?: string | null;
+      lunchReturn?: string | null;
+      finalOut?: string | null;
+      status?: AttendanceStatus | null;
+    }
+  ) {
+    const record = await prisma.attendance.findUnique({
+      where: { id },
+    });
+
+    if (!record) {
+      throw new AppError(404, "Attendance record not found", undefined, "RECORD_NOT_FOUND");
+    }
+
+    const updates: Prisma.AttendanceUpdateInput = {};
+    if (data.morningIn !== undefined) {
+      updates.morningIn = data.morningIn ? new Date(data.morningIn) : null;
+    }
+    if (data.lunchOut !== undefined) {
+      updates.lunchOut = data.lunchOut ? new Date(data.lunchOut) : null;
+    }
+    if (data.lunchReturn !== undefined) {
+      updates.lunchReturn = data.lunchReturn ? new Date(data.lunchReturn) : null;
+    }
+    if (data.finalOut !== undefined) {
+      updates.finalOut = data.finalOut ? new Date(data.finalOut) : null;
+    }
+    if (data.status !== undefined) {
+      updates.status = data.status;
+    }
+
+    const updated = await prisma.attendance.update({
+      where: { id },
+      data: updates,
+      include: { user: { select: userSelect } },
+    });
+
+    return formatAttendance(updated);
   },
 };

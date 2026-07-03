@@ -9,6 +9,11 @@ const startServer = async () => {
     await prisma.$connect();
     logger.info("Database connected");
 
+    // Load dynamic settings from DB/fallback
+    const { settingsService } = await import("./services/settings.service");
+    await settingsService.getSettings();
+    logger.info("System settings initialized");
+
     app.listen(config.port, () => {
       logger.info({ port: config.port, env: config.nodeEnv }, "Server started");
     });
