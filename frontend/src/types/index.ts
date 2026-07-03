@@ -1,0 +1,83 @@
+export type Role = "ADMIN" | "EMPLOYEE";
+
+export type AttendanceStatus =
+  | "PRESENT"
+  | "LATE"
+  | "ABSENT"
+  | "HALF_DAY"
+  | "LUNCH_MISSING"
+  | "PENDING";
+
+export type PunchType = "MORNING_IN" | "LUNCH_OUT" | "LUNCH_RETURN" | "FINAL_OUT";
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  employeeId: string;
+  department: string | null;
+  role: Role;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface Attendance {
+  id: string;
+  userId: string;
+  date: string;
+  ethiopianDate: string;
+  ethiopianDateLabel?: string;
+  morningIn: string | null;
+  lunchOut: string | null;
+  lunchReturn: string | null;
+  finalOut: string | null;
+  status: AttendanceStatus | null;
+  ipAddress: string | null;
+  user?: Pick<User, "id" | "name" | "employeeId" | "email" | "department">;
+}
+
+export interface StepSchedule {
+  enabled: boolean;
+  message: string;
+  recorded: boolean;
+}
+
+export interface AttendanceSchedule {
+  currentEatTime: string;
+  ethiopianDate: string;
+  ethiopianDateLabel: string;
+  steps: Record<PunchType, StepSchedule>;
+}
+
+export interface TodayAttendanceResponse {
+  attendance: Attendance | null;
+  schedule: AttendanceSchedule;
+}
+
+export interface DashboardStats {
+  totalEmployees: number;
+  presentToday: number;
+  absentToday: number;
+  lateToday: number;
+  lunchMissingToday: number;
+  date: string;
+  ethiopianDate: string;
+  ethiopianDateLabel: string;
+}
+
+export interface AllowedIp {
+  id: string;
+  ipAddress: string;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  message: string;
+  data?: T;
+  errors?: Record<string, string[]>;
+  code?: string;
+  requestId?: string;
+}
