@@ -303,30 +303,6 @@ const applyAutomaticStatus = async (
   });
 };
 
-const assertIpNotUsedByAnotherUser = async (
-  userId: string,
-  ipAddress: string,
-  today: Date
-) => {
-  const conflict = await prisma.attendance.findFirst({
-    where: {
-      date: today,
-      userId: { not: userId },
-      morningIn: { not: null },
-    },
-    include: { user: { select: { name: true } } },
-  });
-
-  if (conflict) {
-    throw new AppError(
-      409,
-      "This IP address has already been used for attendance today",
-      undefined,
-      "IP_SESSION_CONFLICT"
-    );
-  }
-};
-
 const validatePunch = (
   punch: PunchType,
   attendance: Attendance,
@@ -439,10 +415,6 @@ export const attendanceService = {
       }
 
       attendance = await applyAutomaticStatus(attendance, now);
-
-      if (punch === "MORNING_IN") {
-        await assertIpNotUsedByAnotherUser(userId, ipAddress, today);
-      }
 
       const { data, message } = validatePunch(punch, attendance, now);
 
