@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Attendance, AttendanceSchedule, PunchType, StepSchedule, AttendanceStatus } from "@/types";
 import { apiRequest, ApiError } from "@/lib/api";
 import { formatTime, getStatusColor, formatStatusLabel } from "@/lib/utils";
+import { getDeviceId } from "@/lib/device";
 import {
   LogIn,
   LogOut,
@@ -269,6 +270,7 @@ function PunchCard({
       await apiRequest("/attendance/check", {
         method: "POST",
         body: JSON.stringify({ punch }),
+        headers: { "x-device-id": getDeviceId() },
       });
       onUpdate();
     } catch (err) {

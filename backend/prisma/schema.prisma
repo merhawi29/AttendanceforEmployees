@@ -31,8 +31,9 @@ model User {
   isActive      Boolean        @default(true) @map("is_active")
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
-  attendances   Attendance[]
-  refreshTokens RefreshToken[]
+  attendances    Attendance[]
+  refreshTokens  RefreshToken[]
+  employeeDevices EmployeeDevice[]
 
   resetToken    String?        @map("reset_token")
   resetExpire   DateTime?      @map("reset_expire")
@@ -82,6 +83,27 @@ model Attendance {
   @@index([ethiopianDate])
   @@index([ipAddress, date])
   @@map("attendances")
+}
+
+model EmployeeDevice {
+  id              String   @id @default(cuid())
+  employeeId      String   @map("employee_id")
+  deviceId        String   @unique @map("device_id")
+  deviceName      String?  @map("device_name")
+  browser         String?
+  operatingSystem String?  @map("operating_system")
+  ipAddress       String?  @map("ip_address")
+  userAgent       String?  @map("user_agent")
+  isApproved      Boolean  @default(false) @map("is_approved")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  lastUsedAt      DateTime? @map("last_used_at")
+  user            User     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([deviceId])
+  @@map("employee_devices")
 }
 
 model SystemSetting {

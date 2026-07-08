@@ -73,6 +73,29 @@ export interface AllowedIp {
   createdAt: string;
 }
 
+export interface EmployeeDevice {
+  id: string;
+  employeeId: string;
+  deviceId: string;
+  deviceName: string | null;
+  browser: string | null;
+  operatingSystem: string | null;
+  ipAddress: string | null;
+  isApproved: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lastUsedAt: string | null;
+  employee?: Pick<User, "id" | "name" | "employeeId" | "email" | "department">;
+}
+
+export interface DeviceStatus {
+  hasDevice: boolean;
+  isApproved: boolean;
+  device: EmployeeDevice | null;
+  pendingCount: number;
+}
+
 export interface ApiResponse<T = unknown> {
   success: boolean;
   message: string;

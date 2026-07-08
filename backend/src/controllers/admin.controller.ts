@@ -4,6 +4,7 @@ import { userService, ipService } from "../services/admin.service";
 import { settingsService } from "../services/settings.service";
 import { attendanceService } from "../services/attendance.service";
 import { asyncHandler, sendSuccess } from "../utils/response";
+import { getClientIp, normalizeIp } from "../utils/helpers";
 
 export const getUsers = asyncHandler(async (_req: AuthRequest, res: Response) => {
   const users = await userService.getAll();
@@ -64,4 +65,9 @@ export const editAttendance = asyncHandler(async (req: AuthRequest, res: Respons
 export const getUserSummary = asyncHandler(async (req: AuthRequest, res: Response) => {
   const summary = await userService.getUserSummary(String(req.params.id));
   sendSuccess(res, summary, "User attendance summary retrieved");
+});
+
+export const getMyIp = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const ip = normalizeIp(getClientIp(req));
+  sendSuccess(res, { ip }, "Your IP address detected");
 });

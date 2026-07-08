@@ -14,6 +14,7 @@ import {
 import authRoutes from "./routes/auth.routes";
 import attendanceRoutes from "./routes/attendance.routes";
 import adminRoutes from "./routes/admin.routes";
+import deviceRoutes from "./routes/device.routes";
 import userRoutes from "./routes/user.routes";
 
 const app = express();
@@ -45,6 +46,7 @@ app.use("/api/attendance/check", attendanceRateLimiter);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/user", userRoutes);
+app.use("/api/devices", deviceRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

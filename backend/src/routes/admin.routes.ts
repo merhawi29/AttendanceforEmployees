@@ -31,5 +31,6 @@ router.get("/settings", adminController.getSettings);
 router.post("/settings", validate(settingsSchema), adminController.updateSettings);
 router.patch("/attendance/:id", validate(adminEditAttendanceSchema), adminController.editAttendance);
 router.get("/users/:id/summary", adminController.getUserSummary);
+router.get("/my-ip", adminController.getMyIp);
 
 export default router;

@@ -8,13 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { DashboardStats, Attendance, AttendanceStatus } from "@/types";
+import { Badge } from "@/components/ui/badge";
+import { DashboardStats, Attendance, AttendanceStatus, EmployeeDevice } from "@/types";
 import { apiRequest, ApiError } from "@/lib/api";
 import { formatTime, getStatusColor, formatStatusLabel } from "@/lib/utils";
 import {
   Loader2,
   Search,
-  Filter,
   Eye,
   Edit2,
   X,
@@ -23,14 +23,18 @@ import {
   Mail,
   Phone,
   CalendarDays,
-  Percent,
   CheckCircle,
   AlertTriangle,
   XCircle,
   Clock,
   Sparkles,
-  Layers,
-  Award
+  Award,
+  Smartphone,
+  ShieldCheck,
+  ShieldAlert,
+  Users,
+  Activity,
+  BarChart3,
 } from "lucide-react";
 
 interface EmployeeSummary {
@@ -67,6 +71,7 @@ function calculateWorkedHours(a: Attendance): string {
 function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [attendances, setAttendances] = useState<Attendance[]>([]);
+  const [devices, setDevices] = useState<EmployeeDevice[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -120,13 +125,15 @@ function AdminDashboard() {
         queryStr = `?date=${customDate || new Date().toISOString().split("T")[0]}`;
       }
 
-      const [statsData, attendanceData] = await Promise.all([
+      const [statsData, attendanceData, devicesData] = await Promise.all([
         apiRequest<DashboardStats>("/attendance/stats"),
         apiRequest<Attendance[]>(`/attendance/all${queryStr}`),
+        apiRequest<EmployeeDevice[]>("/devices/admin").catch(() => [] as EmployeeDevice[]),
       ]);
 
       setStats(statsData);
       setAttendances(attendanceData);
+      setDevices(devicesData);
 
       // Extract departments dynamically
       const depts = new Set<string>();
@@ -242,6 +249,10 @@ function AdminDashboard() {
   const absentPercent = reportsTotal > 0 ? Math.round((reportsAbsent / reportsTotal) * 100) : 0;
   const overallCompliance = reportsTotal > 0 ? Math.round(((reportsPresent + reportsLate) / reportsTotal) * 100) : 100;
 
+  const approvedDevices = devices.filter(d => d.isApproved && d.isActive).length;
+  const pendingDevices = devices.filter(d => !d.isApproved && d.isActive).length;
+  const totalDevices = devices.filter(d => d.isActive).length;
+
   if (loading && attendances.length === 0) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -260,6 +271,46 @@ function AdminDashboard() {
       </div>
 
       {stats && <StatsCards stats={stats} />}
+
+      {/* Device Summary Card */}
+      <div className="grid gap-4 sm:grid-cols-4">
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 border-blue-200">
+          <CardContent className="p-4 flex items-center gap-3">
+            <Smartphone className="h-8 w-8 text-blue-600" />
+            <div>
+              <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider">Total Devices</p>
+              <p className="text-2xl font-bold text-blue-900">{totalDevices}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-green-50 to-green-100/50 border-green-200">
+          <CardContent className="p-4 flex items-center gap-3">
+            <ShieldCheck className="h-8 w-8 text-green-600" />
+            <div>
+              <p className="text-xs font-semibold text-green-700 uppercase tracking-wider">Approved</p>
+              <p className="text-2xl font-bold text-green-900">{approvedDevices}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-orange-50 to-orange-100/50 border-orange-200">
+          <CardContent className="p-4 flex items-center gap-3">
+            <ShieldAlert className="h-8 w-8 text-orange-600" />
+            <div>
+              <p className="text-xs font-semibold text-orange-700 uppercase tracking-wider">Pending</p>
+              <p className="text-2xl font-bold text-orange-900">{pendingDevices}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 border-purple-200">
+          <CardContent className="p-4 flex items-center gap-3">
+            <Users className="h-8 w-8 text-purple-600" />
+            <div>
+              <p className="text-xs font-semibold text-purple-700 uppercase tracking-wider">Employees</p>
+              <p className="text-2xl font-bold text-purple-900">{stats?.totalEmployees || 0}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Reports segment */}
       <div className="grid gap-6 md:grid-cols-3">

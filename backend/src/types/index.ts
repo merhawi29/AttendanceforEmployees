@@ -45,4 +45,34 @@ export interface AttendanceSummary {
   lunchMissingToday: number;
 }
 
+export interface DeviceInfo {
+  deviceId?: string;
+  deviceName?: string;
+  browser?: string;
+  operatingSystem?: string;
+  userAgent?: string;
+}
+
+export interface EmployeeDeviceResponse {
+  id: string;
+  employeeId: string;
+  deviceId: string;
+  deviceName: string | null;
+  browser: string | null;
+  operatingSystem: string | null;
+  ipAddress: string | null;
+  isApproved: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lastUsedAt: string | null;
+  employee?: {
+    id: string;
+    name: string;
+    email: string;
+    employeeId: string;
+    department: string | null;
+  };
+}
+
 export { AttendanceStatus, Role };

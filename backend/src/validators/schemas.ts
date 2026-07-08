@@ -139,6 +139,25 @@ export const settingsSchema = z.object({
   }),
 });
 
+export const registerDeviceSchema = z.object({
+  body: z.object({
+    deviceId: z.string().min(1, "Device ID is required").max(255),
+    deviceName: z.string().trim().max(255).optional(),
+    browser: z.string().trim().max(100).optional(),
+    operatingSystem: z.string().trim().max(100).optional(),
+    userAgent: z.string().trim().max(500).optional(),
+  }),
+});
+
+export const approveDeviceSchema = z.object({
+  params: z.object({
+    id: cuidSchema,
+  }),
+  body: z.object({
+    isApproved: z.boolean(),
+  }),
+});
+
 export const adminEditAttendanceSchema = z.object({
   body: z.object({
     morningIn: z.string().nullable().optional(),

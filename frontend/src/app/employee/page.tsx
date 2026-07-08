@@ -5,14 +5,27 @@ import { ProtectedRoute } from "@/components/auth/protected-route";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { AttendancePanel, AttendanceHistoryTable } from "@/components/attendance/attendance-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Attendance, AttendanceSchedule, TodayAttendanceResponse } from "@/types";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Attendance, AttendanceSchedule, TodayAttendanceResponse, DeviceStatus } from "@/types";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
-import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { ApiError } from "@/lib/api";
+import { getDeviceInfo } from "@/lib/device";
+import {
+  Loader2,
+  Smartphone,
+  Shield,
+  ShieldCheck,
+  ShieldAlert,
+  Calendar,
+  Clock,
+  User,
+  Building2,
+  CheckCircle2,
+  AlertTriangle,
+} from "lucide-react";
+import { formatDate } from "@/lib/utils";
+import Link from "next/link";
 
 const EMPTY_SCHEDULE: AttendanceSchedule = {
   currentEatTime: "--:--",
@@ -32,36 +45,47 @@ function EmployeeDashboard() {
   const [schedule, setSchedule] = useState<AttendanceSchedule>(EMPTY_SCHEDULE);
   const [history, setHistory] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dateStr, setDateStr] = useState("");
+  const [deviceStatus, setDeviceStatus] = useState<DeviceStatus | null>(null);
+  const [registering, setRegistering] = useState(false);
+  const [now, setNow] = useState(new Date());
 
   const fetchData = useCallback(async () => {
     try {
-      const [todayData, historyData] = await Promise.all([
+      const [todayData, historyData, devStatus] = await Promise.all([
         apiRequest<TodayAttendanceResponse>("/attendance/today"),
         apiRequest<Attendance[]>("/attendance/history"),
+        apiRequest<DeviceStatus>("/devices/status").catch(() => null),
       ]);
       setToday(todayData.attendance);
       setSchedule(todayData.schedule);
       setHistory(historyData);
+      setDeviceStatus(devStatus);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    setDateStr(
-      new Date().toLocaleDateString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-    );
-  }, []);
-
-  useEffect(() => {
     fetchData();
+    const interval = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(interval);
   }, [fetchData]);
+
+  const handleRegisterDevice = async () => {
+    setRegistering(true);
+    try {
+      const info = getDeviceInfo();
+      await apiRequest("/devices/register", {
+        method: "POST",
+        body: JSON.stringify(info),
+      });
+      fetchData();
+    } catch {
+      // ignore
+    } finally {
+      setRegistering(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -72,17 +96,119 @@ function EmployeeDashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Welcome, {user?.name}</h2>
-        <p className="text-gray-500">{dateStr}</p>
+    <div className="space-y-6 pb-12">
+      {/* Header Row */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white font-bold text-lg">
+              {user?.name?.charAt(0)?.toUpperCase() || "U"}
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Welcome, {user?.name}</h2>
+              <p className="flex items-center gap-2 text-sm text-gray-500">
+                <Building2 className="h-3.5 w-3.5" />
+                {user?.department || "No Department"} · {user?.employeeId}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-2 text-gray-600 bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
+            <Calendar className="h-4 w-4 text-blue-600" />
+            <span className="font-medium">{now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</span>
+          </div>
+          <div className="flex items-center gap-2 text-gray-600 bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
+            <Clock className="h-4 w-4 text-blue-600 animate-pulse" />
+            <span className="font-medium">{now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}</span>
+          </div>
+        </div>
       </div>
+
+      {/* Device Status Banner */}
+      {deviceStatus && !deviceStatus.isApproved && (
+        <Card className={`border ${deviceStatus.hasDevice ? "border-yellow-200 bg-yellow-50/50" : "border-blue-200 bg-blue-50/50"} shadow-none`}>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div className="flex items-center gap-3">
+              {deviceStatus.isApproved ? (
+                <ShieldCheck className="h-5 w-5 text-green-600" />
+              ) : deviceStatus.hasDevice ? (
+                <ShieldAlert className="h-5 w-5 text-yellow-600" />
+              ) : (
+                <Shield className="h-5 w-5 text-blue-600" />
+              )}
+              <div>
+                <p className="text-sm font-semibold text-gray-900">
+                  {deviceStatus.isApproved
+                    ? "Device approved — you can check in"
+                    : deviceStatus.hasDevice
+                      ? "Device pending admin approval"
+                      : "No device registered"}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {deviceStatus.isApproved
+                    ? "Your device is trusted for attendance"
+                    : deviceStatus.hasDevice
+                      ? "An admin needs to approve your device before you can check in"
+                      : "Register this device to enable attendance check-in"}
+                </p>
+              </div>
+            </div>
+            {!deviceStatus.isApproved && (
+              <Button
+                size="sm"
+                onClick={handleRegisterDevice}
+                disabled={registering}
+              >
+                <Smartphone className="h-4 w-4" />
+                {registering ? "Registering..." : deviceStatus.hasDevice ? "Re-register" : "Register Device"}
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <AttendancePanel attendance={today} schedule={schedule} onUpdate={fetchData} />
 
+      {/* Stats Row */}
+      {(today?.morningIn || today?.status) && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Card className="bg-green-50/50 border-green-100">
+            <CardContent className="p-4 flex items-center gap-3">
+              <CheckCircle2 className="h-8 w-8 text-green-600" />
+              <div>
+                <p className="text-xs font-semibold text-green-700 uppercase tracking-wider">Status</p>
+                <p className="text-lg font-bold text-green-900">{today?.status === "PRESENT" ? "Present" : today?.status === "LATE" ? "Late" : today?.status || "Pending"}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-blue-50/50 border-blue-100">
+            <CardContent className="p-4 flex items-center gap-3">
+              <Clock className="h-8 w-8 text-blue-600" />
+              <div>
+                <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider">Morning In</p>
+                <p className="text-lg font-bold text-blue-900">{today?.morningIn ? new Date(today.morningIn).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }) : "—"}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-purple-50/50 border-purple-100">
+            <CardContent className="p-4 flex items-center gap-3">
+              <Smartphone className="h-8 w-8 text-purple-600" />
+              <div>
+                <p className="text-xs font-semibold text-purple-700 uppercase tracking-wider">Devices</p>
+                <p className="text-lg font-bold text-purple-900">
+                  {deviceStatus?.isApproved ? "Approved" : deviceStatus?.hasDevice ? "Pending" : "None"}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <Card>
-        <CardHeader>
-          <CardTitle>Recent History</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Recent Attendance</CardTitle>
+          <Link href="/employee/profile" className="text-sm text-blue-600 hover:underline font-medium">View Profile</Link>
         </CardHeader>
         <CardContent>
           <AttendanceHistoryTable records={history} />

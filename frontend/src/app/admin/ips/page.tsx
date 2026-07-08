@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { AllowedIp } from "@/types";
 import { apiRequest, ApiError } from "@/lib/api";
-import { Loader2, Plus, Trash2, Shield } from "lucide-react";
+import { Loader2, Plus, Trash2, Shield, Crosshair } from "lucide-react";
 
 function IpsPage() {
   const [ips, setIps] = useState<AllowedIp[]>([]);
@@ -19,6 +19,8 @@ function IpsPage() {
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [detecting, setDetecting] = useState(false);
+  const [detectSuccess, setDetectSuccess] = useState<string | null>(null);
 
   const fetchIps = useCallback(async () => {
     try {
@@ -32,6 +34,22 @@ function IpsPage() {
   useEffect(() => {
     fetchIps();
   }, [fetchIps]);
+
+  const detectIp = async () => {
+    setDetecting(true);
+    setError(null);
+    setDetectSuccess(null);
+    try {
+      const data = await apiRequest<{ ip: string }>("/admin/my-ip");
+      setIpAddress(data.ip);
+      setDetectSuccess("Your current IP has been detected");
+      setTimeout(() => setDetectSuccess(null), 3000);
+    } catch {
+      setError("Could not detect IP address");
+    } finally {
+      setDetecting(false);
+    }
+  };
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,15 +103,23 @@ function IpsPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleAdd} className="flex flex-col gap-4 sm:flex-row sm:items-end">
+            {detectSuccess && <p className="col-span-full text-sm text-green-600 sm:col-span-3">{detectSuccess}</p>}
             {error && <p className="col-span-full text-sm text-red-600 sm:col-span-3">{error}</p>}
             <div className="flex-1 space-y-2">
               <Label>IP Address</Label>
-              <Input
-                placeholder="192.168.1.100"
-                value={ipAddress}
-                onChange={(e) => setIpAddress(e.target.value)}
-                required
-              />
+              <div className="flex gap-2">
+                <Input
+                  placeholder="192.168.1.100"
+                  value={ipAddress}
+                  onChange={(e) => setIpAddress(e.target.value)}
+                  required
+                  className="flex-1"
+                />
+                <Button type="button" variant="outline" onClick={detectIp} disabled={detecting}>
+                  <Crosshair className="h-4 w-4" />
+                  {detecting ? "Detecting..." : "Detect My IP"}
+                </Button>
+              </div>
             </div>
             <div className="flex-1 space-y-2">
               <Label>Description</Label>

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticate, authorize } from "../middleware/auth.middleware";
 import { ipRestriction } from "../middleware/ip.middleware";
+import { deviceRestriction } from "../middleware/device.middleware";
 import { validate } from "../middleware/validate.middleware";
 import { attendanceActionSchema, dateQuerySchema } from "../validators/schemas";
 import * as attendanceController from "../controllers/attendance.controller";
@@ -15,6 +16,7 @@ router.get("/settings", attendanceController.getSettings);
 router.post(
   "/check",
   ipRestriction,
+  deviceRestriction,
   validate(attendanceActionSchema),
   attendanceController.recordAttendance
 );

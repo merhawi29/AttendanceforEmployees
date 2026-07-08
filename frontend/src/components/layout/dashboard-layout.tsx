@@ -14,18 +14,21 @@ import {
   Building2,
   User,
   Settings,
+  Smartphone,
 } from "lucide-react";
 
 const adminLinks = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/attendance", label: "Attendance", icon: Clock },
   { href: "/admin/users", label: "Employees", icon: Users },
+  { href: "/admin/devices", label: "Devices", icon: Smartphone },
   { href: "/admin/ips", label: "IP Whitelist", icon: Shield },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 const employeeLinks = [
   { href: "/employee", label: "My Attendance", icon: Clock },
+  { href: "/employee/devices", label: "My Devices", icon: Smartphone },
   { href: "/employee/profile", label: "Profile", icon: User },
 ];
 
