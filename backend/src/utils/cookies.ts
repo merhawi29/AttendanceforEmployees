@@ -1,10 +1,12 @@
 import { CookieOptions, Response } from "express";
 import { config } from "../config";
 
+const isProduction = config.nodeEnv === "production";
+
 const baseCookieOptions = (): CookieOptions => ({
   httpOnly: true,
-  secure: config.nodeEnv === "production",
-  sameSite: config.nodeEnv === "production" ? "none" : "strict",
+  secure: isProduction,
+  sameSite: isProduction ? "none" : "lax",
   path: "/",
   ...(config.cookieDomain ? { domain: config.cookieDomain } : {}),
 });
