@@ -16,12 +16,13 @@ export const ipRestriction = async (
 
   const clientIp = normalizeIp(getClientIp(req));
 
-  const allowedIp = await prisma.allowedIp.findFirst({
-    where: {
-      ipAddress: { in: [clientIp, getClientIp(req)] },
-      isActive: true,
-    },
+  const allowedIps = await prisma.allowedIp.findMany({
+    where: { isActive: true },
   });
+
+  const allowedIp = allowedIps.find(
+    (ip) => normalizeIp(ip.ipAddress.trim()) === clientIp
+  );
 
   if (!allowedIp) {
     return next(
