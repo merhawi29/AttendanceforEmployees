@@ -4,7 +4,7 @@ import { config } from "../config";
 const baseCookieOptions = (): CookieOptions => ({
   httpOnly: true,
   secure: config.nodeEnv === "production",
-  sameSite: "strict",
+  sameSite: config.nodeEnv === "production" ? "none" : "strict",
   path: "/",
   ...(config.cookieDomain ? { domain: config.cookieDomain } : {}),
 });
