@@ -4,8 +4,14 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
-  const adminPassword = await bcrypt.hash("admin123", 12);
-  const employeePassword = await bcrypt.hash("employee123", 12);
+  const adminPassword = await bcrypt.hash(
+    process.env.SEED_ADMIN_PASSWORD || "admin123",
+    12
+  );
+  const employeePassword = await bcrypt.hash(
+    process.env.SEED_EMPLOYEE_PASSWORD || "employee123",
+    12
+  );
 
   await prisma.user.upsert({
     where: { email: "admin@company.com" },
@@ -19,6 +25,7 @@ async function main() {
       role: "ADMIN",
     },
   });
+  console.log("Admin user created/verified (admin@company.com)");
 
   await prisma.user.upsert({
     where: { email: "john.doe@company.com" },
@@ -45,15 +52,20 @@ async function main() {
       role: "EMPLOYEE",
     },
   });
+  console.log("Employee users created/verified");
 
-  const localIps = ["127.0.0.1", "::1", "localhost"];
-  for (const ip of localIps) {
+  const ips = process.env.SEED_ALLOWED_IPS
+    ? process.env.SEED_ALLOWED_IPS.split(",").map((s) => s.trim())
+    : ["127.0.0.1", "::1", "localhost"];
+
+  for (const ip of ips) {
     await prisma.allowedIp.upsert({
       where: { ipAddress: ip },
       update: { isActive: true },
-      create: { ipAddress: ip, description: "Local development" },
+      create: { ipAddress: ip, description: "Initial seed" },
     });
   }
+  console.log(`Allowed IPs whitelisted: ${ips.join(", ")}`);
 
   console.log("Seed completed successfully");
 }

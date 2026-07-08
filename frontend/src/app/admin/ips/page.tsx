@@ -145,7 +145,7 @@ function IpsPage() {
                         </Badge>
                       </td>
                       <td className="py-3 pr-4 text-gray-500">
-                        {new Date(ip.createdAt).toLocaleDateString()}
+                        {new Date(ip.createdAt).toLocaleDateString("en-US")}
                       </td>
                       <td className="py-3">
                         <div className="flex gap-2">

@@ -10,7 +10,7 @@ export interface SystemSettings {
 }
 
 const DEFAULT_SETTINGS: SystemSettings = {
-  morningCheckInStart: "08:30",
+  morningCheckInStart: "01:30",
   morningCheckInEnd: "08:45",
   lunchStartTime: "12:30",
   lunchReturnDeadline: "13:30",

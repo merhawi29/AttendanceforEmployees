@@ -17,13 +17,13 @@ export const config = {
   jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || "fallback-refresh-secret-change-me",
   jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
   jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
-  corsOrigin: process.env.CORS_ORIGIN || "http://localhost:3001",
+  corsOrigin: process.env.CORS_ORIGIN?.split(",") || ["http://localhost:3000", "http://localhost:3001"],
   ipRestrictionEnabled: process.env.IP_RESTRICTION_ENABLED !== "false",
   cookieDomain: process.env.COOKIE_DOMAIN || undefined,
   logLevel: process.env.LOG_LEVEL || "info",
   attendance: {
     morningIn: {
-      startHour: 8,
+      startHour: 1,
       startMinute: 30,
       endHour: 8,
       endMinute: 45,

@@ -72,7 +72,7 @@ function AdminDashboard() {
 
   // Filters
   const [dateFilter, setDateFilter] = useState<"today" | "yesterday" | "this-week" | "custom">("today");
-  const [customDate, setCustomDate] = useState(new Date().toISOString().split("T")[0]);
+  const [customDate, setCustomDate] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDept, setSelectedDept] = useState("ALL");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
@@ -117,7 +117,7 @@ function AdminDashboard() {
         const startOfWeek = new Date(today.setDate(diff)).toISOString().split("T")[0];
         queryStr = `?startDate=${startOfWeek}&endDate=${todayStr}`;
       } else if (dateFilter === "custom") {
-        queryStr = `?date=${customDate}`;
+        queryStr = `?date=${customDate || new Date().toISOString().split("T")[0]}`;
       }
 
       const [statsData, attendanceData] = await Promise.all([
@@ -140,6 +140,10 @@ function AdminDashboard() {
       setLoading(false);
     }
   }, [dateFilter, customDate]);
+
+  useEffect(() => {
+    setCustomDate(new Date().toISOString().split("T")[0]);
+  }, []);
 
   useEffect(() => {
     fetchData();

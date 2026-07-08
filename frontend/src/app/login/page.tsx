@@ -224,13 +224,7 @@ export default function LoginPage() {
             </form>
           )}
 
-          {mode === "login" && process.env.NODE_ENV === "development" && (
-            <div className="mt-6 rounded-lg bg-gray-50 p-4 text-xs text-gray-500">
-              <p className="font-medium text-gray-700">Demo credentials (dev only):</p>
-              <p className="mt-1">Admin: admin@company.com / admin123</p>
-              <p>Employee: john.doe@company.com / employee123</p>
-            </div>
-          )}
+
         </CardContent>
       </Card>
     </div>

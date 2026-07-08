@@ -32,7 +32,7 @@ interface SystemSettings {
 }
 
 const DEFAULT_SETTINGS: SystemSettings = {
-  morningCheckInStart: "08:30",
+  morningCheckInStart: "01:30",
   morningCheckInEnd: "08:45",
   lunchStartTime: "12:30",
   lunchReturnDeadline: "13:30",
@@ -367,15 +367,14 @@ export function AttendancePanel({ attendance, schedule, onUpdate }: AttendancePa
     ? `${currentTime.getFullYear()}-${String(currentTime.getMonth() + 1).padStart(2, "0")}-${String(currentTime.getDate()).padStart(2, "0")}`
     : "";
 
-  const steps = calculateLocalSteps(attendance, currentTime || new Date(), settings);
-  const localSchedule: AttendanceSchedule = {
-    ...schedule,
-    steps,
-  };
+  const steps = currentTime ? calculateLocalSteps(attendance, currentTime, settings) : null;
+  const localSchedule: AttendanceSchedule = steps
+    ? { ...schedule, steps }
+    : schedule;
 
   const currentMinutes = currentTime 
     ? (currentTime.getHours() * 60 + currentTime.getMinutes()) 
-    : (new Date().getHours() * 60 + new Date().getMinutes());
+    : 0;
 
   // Overall attendance status
   let overallStatus: AttendanceStatus = attendance?.status || "PENDING";
