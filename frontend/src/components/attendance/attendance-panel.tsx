@@ -352,8 +352,12 @@ export function AttendancePanel({ attendance, schedule, onUpdate }: AttendancePa
       }
     }
     fetchSettings();
+    const settingsInterval = setInterval(fetchSettings, 30000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearInterval(settingsInterval);
+    };
   }, []);
 
   useEffect(() => {
