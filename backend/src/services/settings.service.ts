@@ -20,33 +20,32 @@ const DEFAULT_SETTINGS: SystemSettings = {
 
 let cachedSettings: SystemSettings | null = null;
 
+async function loadFromDb(): Promise<SystemSettings> {
+  try {
+    const dbSettings = await prisma.systemSetting.findMany();
+    const settingsMap = new Map(dbSettings.map((s) => [s.key, s.value]));
+
+    cachedSettings = {
+      morningCheckInStart: settingsMap.get("morningCheckInStart") || DEFAULT_SETTINGS.morningCheckInStart,
+      morningCheckInEnd: settingsMap.get("morningCheckInEnd") || DEFAULT_SETTINGS.morningCheckInEnd,
+      lunchStartTime: settingsMap.get("lunchStartTime") || DEFAULT_SETTINGS.lunchStartTime,
+      lunchReturnDeadline: settingsMap.get("lunchReturnDeadline") || DEFAULT_SETTINGS.lunchReturnDeadline,
+      workEndTime: settingsMap.get("workEndTime") || DEFAULT_SETTINGS.workEndTime,
+      gracePeriodMinutes: parseInt(
+        settingsMap.get("gracePeriodMinutes") || String(DEFAULT_SETTINGS.gracePeriodMinutes),
+        10
+      ),
+    };
+  } catch (error) {
+    cachedSettings = { ...DEFAULT_SETTINGS };
+  }
+
+  return cachedSettings;
+}
+
 export const settingsService = {
   async getSettings(): Promise<SystemSettings> {
-    if (cachedSettings) {
-      return cachedSettings;
-    }
-
-    try {
-      const dbSettings = await prisma.systemSetting.findMany();
-      const settingsMap = new Map(dbSettings.map((s) => [s.key, s.value]));
-
-      cachedSettings = {
-        morningCheckInStart: settingsMap.get("morningCheckInStart") || DEFAULT_SETTINGS.morningCheckInStart,
-        morningCheckInEnd: settingsMap.get("morningCheckInEnd") || DEFAULT_SETTINGS.morningCheckInEnd,
-        lunchStartTime: settingsMap.get("lunchStartTime") || DEFAULT_SETTINGS.lunchStartTime,
-        lunchReturnDeadline: settingsMap.get("lunchReturnDeadline") || DEFAULT_SETTINGS.lunchReturnDeadline,
-        workEndTime: settingsMap.get("workEndTime") || DEFAULT_SETTINGS.workEndTime,
-        gracePeriodMinutes: parseInt(
-          settingsMap.get("gracePeriodMinutes") || String(DEFAULT_SETTINGS.gracePeriodMinutes),
-          10
-        ),
-      };
-    } catch (error) {
-      // Fallback to defaults if DB connection or query fails during start
-      cachedSettings = { ...DEFAULT_SETTINGS };
-    }
-
-    return cachedSettings;
+    return loadFromDb();
   },
 
   async updateSettings(data: SystemSettings): Promise<SystemSettings> {
