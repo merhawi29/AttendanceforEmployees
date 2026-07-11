@@ -180,13 +180,12 @@ const buildSchedule = (attendance: Attendance | null, now: Date = new Date()): A
     morningIn.message = "Morning check-in recorded";
   } else if (minutes < windows.morningInStart) {
     morningIn.message = `Check-in available from ${formatTimeLabel(windows.raw.morningIn.startHour, windows.raw.morningIn.startMinute)}`;
-  } else {
+  } else if (minutes <= windows.morningInEnd) {
     morningIn.enabled = true;
-    if (minutes <= windows.morningInEnd) {
-      morningIn.message = `Check in now (${windows.labels.morningIn})`;
-    } else {
-      morningIn.message = "Late check-in allowed";
-    }
+    morningIn.message = `Check in now (${windows.labels.morningIn})`;
+  } else {
+    morningIn.enabled = false;
+    morningIn.message = `Morning attendance is closed. Lunch Break at ${formatTimeLabel(windows.raw.lunchOut.startHour, windows.raw.lunchOut.startMinute)}`;
   }
 
   const lunchOut: AttendanceSchedule["steps"]["LUNCH_OUT"] = {
@@ -324,13 +323,20 @@ const validatePunch = (
           "OUTSIDE_TIME_WINDOW"
         );
       }
-      const isLate = minutes > windows.morningInEnd; // after morning check-in end
+      if (minutes > windows.morningInEnd) {
+        throw new AppError(
+          400,
+          `Morning attendance is closed. Lunch Break at ${formatTimeLabel(windows.raw.lunchOut.startHour, windows.raw.lunchOut.startMinute)}`,
+          undefined,
+          "OUTSIDE_TIME_WINDOW"
+        );
+      }
       return {
         data: {
           morningIn: now,
-          status: isLate ? "LATE" : "PRESENT",
+          status: "PRESENT",
         },
-        message: isLate ? "Morning check-in recorded (Late)" : "Morning check-in recorded",
+        message: "Morning check-in recorded",
       };
     }
     case "LUNCH_OUT": {

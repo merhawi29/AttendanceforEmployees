@@ -118,13 +118,12 @@ export function calculateLocalSteps(
     steps.MORNING_IN.message = "Morning check-in recorded";
   } else if (currentMinutes < morningStart) {
     steps.MORNING_IN.message = `Check-in available from ${formatToAmPm(settings.morningCheckInStart)}`;
-  } else {
+  } else if (currentMinutes <= morningEnd) {
     steps.MORNING_IN.enabled = true;
-    if (currentMinutes <= morningEnd) {
-      steps.MORNING_IN.message = `Check in now (${formatToAmPm(settings.morningCheckInStart)} - ${formatToAmPm(settings.morningCheckInEnd)})`;
-    } else {
-      steps.MORNING_IN.message = "Late check-in allowed";
-    }
+    steps.MORNING_IN.message = `Check in now (${formatToAmPm(settings.morningCheckInStart)} - ${formatToAmPm(settings.morningCheckInEnd)})`;
+  } else {
+    steps.MORNING_IN.enabled = false;
+    steps.MORNING_IN.message = `Morning attendance is closed. Lunch Break at ${formatToAmPm(settings.lunchStartTime)}`;
   }
 
   // Lunch Out
@@ -336,6 +335,7 @@ export function AttendancePanel({ attendance, schedule, onUpdate }: AttendancePa
   const [error, setError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
+  const [showClosedToast, setShowClosedToast] = useState(false);
 
   useEffect(() => {
     setCurrentTime(new Date());
@@ -355,6 +355,21 @@ export function AttendancePanel({ attendance, schedule, onUpdate }: AttendancePa
 
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!currentTime) return;
+    const currentMins = currentTime.getHours() * 60 + currentTime.getMinutes();
+    const parseToMinutes = (timeStr: string) => {
+      const [h, m] = timeStr.split(":");
+      return parseInt(h, 10) * 60 + parseInt(m, 10);
+    };
+    const morningEnd = parseToMinutes(settings.morningCheckInEnd);
+    if (currentMins > morningEnd && !attendance?.morningIn) {
+      setShowClosedToast(true);
+      const timer = setTimeout(() => setShowClosedToast(false), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentTime, settings.morningCheckInEnd, attendance?.morningIn]);
 
   const clockTime = currentTime
     ? currentTime.toLocaleTimeString("en-US", {
@@ -412,6 +427,13 @@ export function AttendancePanel({ attendance, schedule, onUpdate }: AttendancePa
         <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
+        </div>
+      )}
+
+      {showClosedToast && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700 animate-in fade-in slide-in-from-top-2 duration-300">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          Morning attendance is closed. Lunch Break at {formatToAmPm(settings.lunchStartTime)}
         </div>
       )}
 
