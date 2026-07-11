@@ -9,9 +9,9 @@ import { Role } from "../types";
 
 const router = Router();
 
-router.use(authenticate);
-
 router.get("/settings", attendanceController.getSettings);
+
+router.use(authenticate);
 
 router.post(
   "/check",
