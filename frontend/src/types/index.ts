@@ -52,6 +52,16 @@ export interface AttendanceSchedule {
 export interface TodayAttendanceResponse {
   attendance: Attendance | null;
   schedule: AttendanceSchedule;
+  settings: AttendanceSettings;
+}
+
+export interface AttendanceSettings {
+  morningCheckInStart: string;
+  morningCheckInEnd: string;
+  lunchStartTime: string;
+  lunchReturnDeadline: string;
+  workEndTime: string;
+  gracePeriodMinutes: number;
 }
 
 export interface DashboardStats {

@@ -37,6 +37,7 @@ async function loadFromDb(): Promise<SystemSettings> {
       ),
     };
   } catch (error) {
+    console.error("Failed to load settings from database:", error);
     cachedSettings = { ...DEFAULT_SETTINGS };
   }
 
@@ -60,8 +61,7 @@ export const settingsService = {
       });
     }
 
-    cachedSettings = { ...data };
-    return cachedSettings;
+    return loadFromDb();
   },
 
   getSettingsSync(): SystemSettings {

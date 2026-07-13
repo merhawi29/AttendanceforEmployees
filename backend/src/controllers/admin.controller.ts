@@ -49,11 +49,13 @@ export const resetPassword = asyncHandler(async (req: AuthRequest, res: Response
 
 export const getSettings = asyncHandler(async (_req: AuthRequest, res: Response) => {
   const settings = await settingsService.getSettings();
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
   sendSuccess(res, settings, "Settings retrieved");
 });
 
 export const updateSettings = asyncHandler(async (req: AuthRequest, res: Response) => {
   const settings = await settingsService.updateSettings(req.body);
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
   sendSuccess(res, settings, "Settings updated");
 });
 

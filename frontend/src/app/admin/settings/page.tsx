@@ -37,7 +37,9 @@ function SettingsContent() {
   useEffect(() => {
     async function loadSettings() {
       try {
-        const data = await apiRequest<SettingsState>("/attendance/settings");
+        const data = await apiRequest<SettingsState>("/attendance/settings", {
+          cache: "no-store",
+        });
         setSettings(data);
       } catch (err) {
         setError(err instanceof ApiError ? err.message : "Failed to load settings");
@@ -54,13 +56,17 @@ function SettingsContent() {
     setError(null);
     setSuccess(null);
     try {
-      await apiRequest("/admin/settings", {
+      const updated = await apiRequest<SettingsState>("/admin/settings", {
         method: "POST",
         body: JSON.stringify({
           ...settings,
           gracePeriodMinutes: Number(settings.gracePeriodMinutes),
         }),
+        cache: "no-store",
       });
+      setSettings(updated);
+      localStorage.setItem("attendance-settings-updated", String(Date.now()));
+      window.dispatchEvent(new Event("attendance-settings-updated"));
       setSuccess("Settings updated successfully!");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to save settings");

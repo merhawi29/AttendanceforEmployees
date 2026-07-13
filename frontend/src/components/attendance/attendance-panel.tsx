@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Attendance, AttendanceSchedule, PunchType, StepSchedule, AttendanceStatus } from "@/types";
+import { Attendance, AttendanceSchedule, PunchType, StepSchedule, AttendanceStatus, AttendanceSettings } from "@/types";
 import { apiRequest, ApiError } from "@/lib/api";
 import { formatTime, getStatusColor, formatStatusLabel } from "@/lib/utils";
 import { getDeviceId } from "@/lib/device";
@@ -21,16 +21,10 @@ interface AttendancePanelProps {
   attendance: Attendance | null;
   schedule: AttendanceSchedule;
   onUpdate: () => void;
+  settings?: AttendanceSettings;
 }
 
-interface SystemSettings {
-  morningCheckInStart: string;
-  morningCheckInEnd: string;
-  lunchStartTime: string;
-  lunchReturnDeadline: string;
-  workEndTime: string;
-  gracePeriodMinutes: number;
-}
+interface SystemSettings extends AttendanceSettings {}
 
 const DEFAULT_SETTINGS: SystemSettings = {
   morningCheckInStart: "01:30",
@@ -330,12 +324,18 @@ function PunchCard({
   );
 }
 
-export function AttendancePanel({ attendance, schedule, onUpdate }: AttendancePanelProps) {
+export function AttendancePanel({ attendance, schedule, onUpdate, settings: settingsProp }: AttendancePanelProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
-  const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<SystemSettings>(settingsProp || DEFAULT_SETTINGS);
   const [showClosedToast, setShowClosedToast] = useState(false);
+
+  useEffect(() => {
+    if (settingsProp) {
+      setSettings(settingsProp);
+    }
+  }, [settingsProp]);
 
   useEffect(() => {
     setCurrentTime(new Date());
@@ -345,18 +345,37 @@ export function AttendancePanel({ attendance, schedule, onUpdate }: AttendancePa
 
     async function fetchSettings() {
       try {
-        const data = await apiRequest<SystemSettings>("/attendance/settings");
+        const data = await apiRequest<SystemSettings>("/attendance/settings", {
+          cache: "no-store",
+        });
         setSettings(data);
       } catch (err) {
         console.error("Failed to load settings in panel", err);
       }
     }
+
     fetchSettings();
-    const settingsInterval = setInterval(fetchSettings, 30000);
+
+    const settingsInterval = setInterval(fetchSettings, 5000);
+
+    const handleFocus = () => {
+      fetchSettings();
+    };
+
+    const handleSettingsUpdated = () => {
+      fetchSettings();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("storage", handleSettingsUpdated);
+    window.addEventListener("attendance-settings-updated", handleSettingsUpdated);
 
     return () => {
       clearInterval(interval);
       clearInterval(settingsInterval);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("storage", handleSettingsUpdated);
+      window.removeEventListener("attendance-settings-updated", handleSettingsUpdated);
     };
   }, []);
 

@@ -7,7 +7,7 @@ import { AttendancePanel, AttendanceHistoryTable } from "@/components/attendance
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Attendance, AttendanceSchedule, TodayAttendanceResponse, DeviceStatus } from "@/types";
+import { Attendance, AttendanceSchedule, TodayAttendanceResponse, DeviceStatus, AttendanceSettings } from "@/types";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import { getDeviceInfo } from "@/lib/device";
@@ -43,6 +43,7 @@ function EmployeeDashboard() {
   const { user } = useAuth();
   const [today, setToday] = useState<Attendance | null>(null);
   const [schedule, setSchedule] = useState<AttendanceSchedule>(EMPTY_SCHEDULE);
+  const [settings, setSettings] = useState<AttendanceSettings | null>(null);
   const [history, setHistory] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
   const [deviceStatus, setDeviceStatus] = useState<DeviceStatus | null>(null);
@@ -58,6 +59,9 @@ function EmployeeDashboard() {
       ]);
       setToday(todayData.attendance);
       setSchedule(todayData.schedule);
+      if (todayData.settings) {
+        setSettings(todayData.settings);
+      }
       setHistory(historyData);
       setDeviceStatus(devStatus);
     } finally {
@@ -168,7 +172,12 @@ function EmployeeDashboard() {
         </Card>
       )}
 
-      <AttendancePanel attendance={today} schedule={schedule} onUpdate={fetchData} />
+      <AttendancePanel
+        attendance={today}
+        schedule={schedule}
+        onUpdate={fetchData}
+        settings={settings || undefined}
+      />
 
       {/* Stats Row */}
       {(today?.morningIn || today?.status) && (

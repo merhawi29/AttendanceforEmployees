@@ -444,6 +444,7 @@ export const attendanceService = {
   async getMyToday(userId: string) {
     const now = new Date();
     const today = getTodayDate();
+    const settings = await settingsService.getSettings();
 
     let attendance = await prisma.attendance.findUnique({
       where: { userId_date: { userId, date: today } },
@@ -472,11 +473,13 @@ export const attendanceService = {
         return {
           attendance: formatAttendance(virtualAttendance),
           schedule: buildSchedule(virtualAttendance, now),
+          settings,
         };
       } else {
         return {
           attendance: null,
           schedule: buildSchedule(null, now),
+          settings,
         };
       }
     } else {
@@ -497,6 +500,7 @@ export const attendanceService = {
         return {
           attendance: formatAttendance(attendanceWithComputedStatus),
           schedule: buildSchedule(attendanceWithComputedStatus, now),
+          settings,
         };
       }
     }
@@ -504,6 +508,7 @@ export const attendanceService = {
     return {
       attendance: attendance ? formatAttendance(attendance) : null,
       schedule: buildSchedule(attendance, now),
+      settings,
     };
   },
 
