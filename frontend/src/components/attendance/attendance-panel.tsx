@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Attendance, AttendanceSchedule, PunchType, StepSchedule, AttendanceStatus, AttendanceSettings } from "@/types";
@@ -321,6 +321,7 @@ export function AttendancePanel({ attendance, schedule, onUpdate, settings: sett
   const [error, setError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [showClosedToast, setShowClosedToast] = useState(false);
+  const closedToastShownRef = useRef(false);
   const [settings, setSettings] = useState<SystemSettings>(settingsProp || DEFAULT_SETTINGS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
@@ -369,7 +370,7 @@ export function AttendancePanel({ attendance, schedule, onUpdate, settings: sett
   }, []);
 
   useEffect(() => {
-    if (!currentTime) return;
+    if (!currentTime || closedToastShownRef.current) return;
     const currentMins = currentTime.getHours() * 60 + currentTime.getMinutes();
     const parseToMinutes = (timeStr: string) => {
       const [h, m] = timeStr.split(":");
@@ -377,6 +378,7 @@ export function AttendancePanel({ attendance, schedule, onUpdate, settings: sett
     };
     const morningEnd = parseToMinutes(settings.morningCheckInEnd);
     if (currentMins > morningEnd && !attendance?.morningIn) {
+      closedToastShownRef.current = true;
       setShowClosedToast(true);
       const timer = setTimeout(() => setShowClosedToast(false), 5000);
       return () => clearTimeout(timer);
