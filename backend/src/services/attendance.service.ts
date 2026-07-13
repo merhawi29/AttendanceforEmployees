@@ -193,9 +193,7 @@ const buildSchedule = (attendance: Attendance | null, now: Date = new Date()): A
     enabled: false,
     message: "",
   };
-  if (!hasMorningIn) {
-    lunchOut.message = "Complete morning check-in first";
-  } else if (hasLunchOut) {
+  if (hasLunchOut) {
     lunchOut.message = "Lunch out recorded";
   } else if (minutes < windows.lunchOutStart) {
     lunchOut.message = `Lunch out available after ${formatTimeLabel(windows.raw.lunchOut.startHour, windows.raw.lunchOut.startMinute)}`;
@@ -229,9 +227,7 @@ const buildSchedule = (attendance: Attendance | null, now: Date = new Date()): A
     enabled: false,
     message: "",
   };
-  if (!hasLunchReturn) {
-    finalOut.message = "Complete lunch return first";
-  } else if (hasFinalOut) {
+  if (hasFinalOut) {
     finalOut.message = "Final checkout recorded";
   } else if (minutes < windows.finalOutStart) {
     finalOut.message = `Checkout available after ${formatTimeLabel(windows.raw.finalOut.startHour, windows.raw.finalOut.startMinute)}`;
@@ -340,9 +336,6 @@ const validatePunch = (
       };
     }
     case "LUNCH_OUT": {
-      if (!attendance.morningIn) {
-        throw new AppError(400, "Morning check-in required before lunch out", undefined, "PREREQUISITE_REQUIRED");
-      }
       if (attendance.lunchOut) {
         throw new AppError(409, "Lunch out already recorded", undefined, "DUPLICATE_PUNCH");
       }
@@ -376,9 +369,6 @@ const validatePunch = (
       };
     }
     case "FINAL_OUT": {
-      if (!attendance.lunchReturn) {
-        throw new AppError(400, "Lunch return required before checkout", undefined, "PREREQUISITE_REQUIRED");
-      }
       if (attendance.finalOut) {
         throw new AppError(409, "Final checkout already recorded", undefined, "DUPLICATE_PUNCH");
       }

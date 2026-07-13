@@ -122,10 +122,8 @@ export function calculateLocalSteps(
     steps.MORNING_IN.message = `Morning attendance is closed. Lunch Break at ${formatToAmPm(settings.lunchStartTime)}`;
   }
 
-  // Lunch Out
-  if (!hasMorningIn) {
-    steps.LUNCH_OUT.message = "Complete morning check-in first";
-  } else if (hasLunchOut) {
+  // Lunch Out (independent - no morning check-in required)
+  if (hasLunchOut) {
     steps.LUNCH_OUT.message = "Lunch out recorded";
   } else if (currentMinutes < lunchStart) {
     steps.LUNCH_OUT.message = `Lunch out available after ${formatToAmPm(settings.lunchStartTime)}`;
@@ -134,7 +132,7 @@ export function calculateLocalSteps(
     steps.LUNCH_OUT.message = "Record lunch break";
   }
 
-  // Lunch Return
+  // Lunch Return (depends on Lunch Out only)
   if (!hasLunchOut) {
     steps.LUNCH_RETURN.message = "Record lunch out first";
   } else if (hasLunchReturn) {
@@ -150,10 +148,8 @@ export function calculateLocalSteps(
     }
   }
 
-  // Final Out
-  if (!hasLunchReturn) {
-    steps.FINAL_OUT.message = "Complete lunch return first";
-  } else if (hasFinalOut) {
+  // Final Out (independent - no lunch return required)
+  if (hasFinalOut) {
     steps.FINAL_OUT.message = "Final checkout recorded";
   } else if (currentMinutes < finalOutStart) {
     steps.FINAL_OUT.message = `Checkout available after ${formatToAmPm(settings.workEndTime)}`;
@@ -198,9 +194,6 @@ function getStepBadge(
       if (attendance?.lunchOut) {
         return { label: "Completed", color: "bg-green-100 text-green-800 border border-green-200" };
       }
-      if (!attendance?.morningIn) {
-        return { label: "Locked", color: "bg-gray-100 text-gray-500 border border-gray-200" };
-      }
       return { label: "Waiting", color: "bg-blue-100 text-blue-800 border border-blue-200" };
     }
     case "LUNCH_RETURN": {
@@ -223,9 +216,6 @@ function getStepBadge(
     case "FINAL_OUT": {
       if (attendance?.finalOut) {
         return { label: "Completed", color: "bg-green-100 text-green-800 border border-green-200" };
-      }
-      if (!attendance?.lunchReturn) {
-        return { label: "Locked", color: "bg-gray-100 text-gray-500 border border-gray-200" };
       }
       return { label: "Waiting", color: "bg-blue-100 text-blue-800 border border-blue-200" };
     }

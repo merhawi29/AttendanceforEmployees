@@ -17,14 +17,10 @@ import {
   Shield,
   ShieldCheck,
   ShieldAlert,
-  Calendar,
   Clock,
-  User,
   Building2,
   CheckCircle2,
-  AlertTriangle,
 } from "lucide-react";
-import { formatDate } from "@/lib/utils";
 import Link from "next/link";
 
 const EMPTY_SCHEDULE: AttendanceSchedule = {
@@ -48,7 +44,6 @@ function EmployeeDashboard() {
   const [loading, setLoading] = useState(true);
   const [deviceStatus, setDeviceStatus] = useState<DeviceStatus | null>(null);
   const [registering, setRegistering] = useState(false);
-  const [now, setNow] = useState(new Date());
 
   const fetchData = useCallback(async () => {
     try {
@@ -88,11 +83,6 @@ function EmployeeDashboard() {
       window.removeEventListener("attendance-settings-updated", handleRefresh);
     };
   }, [fetchData]);
-
-  useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   const handleRegisterDevice = async () => {
     setRegistering(true);
@@ -137,14 +127,6 @@ function EmployeeDashboard() {
           </div>
         </div>
         <div className="flex items-center gap-4 text-sm">
-          <div className="flex items-center gap-2 text-gray-600 bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
-            <Calendar className="h-4 w-4 text-blue-600" />
-            <span className="font-medium">{now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</span>
-          </div>
-          <div className="flex items-center gap-2 text-gray-600 bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
-            <Clock className="h-4 w-4 text-blue-600 animate-pulse" />
-            <span className="font-medium">{now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}</span>
-          </div>
         </div>
       </div>
 
