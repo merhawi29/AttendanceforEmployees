@@ -52,16 +52,15 @@ function EmployeeDashboard() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [todayData, historyData, devStatus] = await Promise.all([
+      const [todayData, historyData, devStatus, settingsData] = await Promise.all([
         apiRequest<TodayAttendanceResponse>("/attendance/today"),
         apiRequest<Attendance[]>("/attendance/history"),
         apiRequest<DeviceStatus>("/devices/status").catch(() => null),
+        apiRequest<AttendanceSettings>("/attendance/settings").catch(() => null),
       ]);
       setToday(todayData.attendance);
       setSchedule(todayData.schedule);
-      if (todayData.settings) {
-        setSettings(todayData.settings);
-      }
+      setSettings(settingsData || todayData.settings || null);
       setHistory(historyData);
       setDeviceStatus(devStatus);
     } finally {
@@ -71,9 +70,29 @@ function EmployeeDashboard() {
 
   useEffect(() => {
     fetchData();
+
+    const refreshInterval = setInterval(fetchData, 5000);
+
+    const handleRefresh = () => {
+      fetchData();
+    };
+
+    window.addEventListener("focus", handleRefresh);
+    window.addEventListener("storage", handleRefresh);
+    window.addEventListener("attendance-settings-updated", handleRefresh);
+
+    return () => {
+      clearInterval(refreshInterval);
+      window.removeEventListener("focus", handleRefresh);
+      window.removeEventListener("storage", handleRefresh);
+      window.removeEventListener("attendance-settings-updated", handleRefresh);
+    };
+  }, [fetchData]);
+
+  useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(interval);
-  }, [fetchData]);
+  }, []);
 
   const handleRegisterDevice = async () => {
     setRegistering(true);
@@ -173,6 +192,7 @@ function EmployeeDashboard() {
       )}
 
       <AttendancePanel
+        key={settings ? `${settings.lunchStartTime}-${settings.lunchReturnDeadline}-${settings.workEndTime}` : "loading"}
         attendance={today}
         schedule={schedule}
         onUpdate={fetchData}

@@ -1,4 +1,11 @@
 import { z } from "zod";
+import { normalizeTimeValue } from "../utils/time-format";
+
+const timeFieldSchema = z
+  .string()
+  .trim()
+  .transform((value) => normalizeTimeValue(value))
+  .refine((value) => /^\d{2}:\d{2}$/.test(value), "Format must be HH:MM");
 
 const passwordSchema = z
   .string()
@@ -130,12 +137,12 @@ export const resetPasswordSchema = z.object({
 
 export const settingsSchema = z.object({
   body: z.object({
-    morningCheckInStart: z.string().regex(/^\d{2}:\d{2}$/, "Format must be HH:MM"),
-    morningCheckInEnd: z.string().regex(/^\d{2}:\d{2}$/, "Format must be HH:MM"),
-    lunchStartTime: z.string().regex(/^\d{2}:\d{2}$/, "Format must be HH:MM"),
-    lunchReturnDeadline: z.string().regex(/^\d{2}:\d{2}$/, "Format must be HH:MM"),
-    workEndTime: z.string().regex(/^\d{2}:\d{2}$/, "Format must be HH:MM"),
-    gracePeriodMinutes: z.number().int().min(0).max(120),
+    morningCheckInStart: timeFieldSchema,
+    morningCheckInEnd: timeFieldSchema,
+    lunchStartTime: timeFieldSchema,
+    lunchReturnDeadline: timeFieldSchema,
+    workEndTime: timeFieldSchema,
+    gracePeriodMinutes: z.coerce.number().int().min(0).max(120),
   }),
 });
 

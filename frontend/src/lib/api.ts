@@ -34,8 +34,19 @@ export async function apiRequest<T>(
   options: RequestInit = {},
   retry = true
 ): Promise<T> {
-  const response = await fetch(`${API_URL}${endpoint}`, {
+  const requestUrl =
+    endpoint.includes("/attendance/settings") ||
+    endpoint.includes("/admin/settings") ||
+    endpoint.includes("/attendance/today")
+      ? `${API_URL}${endpoint}${endpoint.includes("?") ? "&" : "?"}_=${Date.now()}`
+      : `${API_URL}${endpoint}`;
+
+  const response = await fetch(requestUrl, {
     ...options,
+    cache:
+      endpoint.includes("/settings") || endpoint.includes("/attendance/today")
+        ? "no-store"
+        : options.cache,
     credentials: "include",
     headers: {
       "Content-Type": "application/json",

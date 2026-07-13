@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Attendance, AttendanceSchedule, PunchType, StepSchedule, AttendanceStatus, AttendanceSettings } from "@/types";
 import { apiRequest, ApiError } from "@/lib/api";
 import { formatTime, getStatusColor, formatStatusLabel } from "@/lib/utils";
+import { formatToAmPm } from "@/lib/time-format";
 import { getDeviceId } from "@/lib/device";
 import {
   LogIn,
@@ -27,13 +28,24 @@ interface AttendancePanelProps {
 interface SystemSettings extends AttendanceSettings {}
 
 const DEFAULT_SETTINGS: SystemSettings = {
-  morningCheckInStart: "01:30",
+  morningCheckInStart: "07:30",
   morningCheckInEnd: "08:45",
   lunchStartTime: "12:30",
-  lunchReturnDeadline: "13:30",
+  lunchReturnDeadline: "14:30",
   workEndTime: "17:30",
   gracePeriodMinutes: 15,
 };
+
+function settingsMatch(a: SystemSettings, b: SystemSettings): boolean {
+  return (
+    a.morningCheckInStart === b.morningCheckInStart &&
+    a.morningCheckInEnd === b.morningCheckInEnd &&
+    a.lunchStartTime === b.lunchStartTime &&
+    a.lunchReturnDeadline === b.lunchReturnDeadline &&
+    a.workEndTime === b.workEndTime &&
+    a.gracePeriodMinutes === b.gracePeriodMinutes
+  );
+}
 
 const STEP_CONFIG: Record<
   PunchType,
@@ -66,16 +78,6 @@ const STEP_CONFIG: Record<
 };
 
 const STEP_ORDER: PunchType[] = ["MORNING_IN", "LUNCH_OUT", "LUNCH_RETURN", "FINAL_OUT"];
-
-function formatToAmPm(timeStr: string): string {
-  if (!timeStr) return "—";
-  const [hourStr, minuteStr] = timeStr.split(":");
-  const hour = parseInt(hourStr, 10);
-  const ampm = hour >= 12 ? "PM" : "AM";
-  const h = hour % 12 || 12;
-  const m = minuteStr;
-  return `${String(h).padStart(2, "0")}:${m} ${ampm}`;
-}
 
 export function calculateLocalSteps(
   attendance: Attendance | null,
@@ -328,18 +330,19 @@ export function AttendancePanel({ attendance, schedule, onUpdate, settings: sett
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
-  const [settings, setSettings] = useState<SystemSettings>(settingsProp || DEFAULT_SETTINGS);
   const [showClosedToast, setShowClosedToast] = useState(false);
+  const [settings, setSettings] = useState<SystemSettings>(settingsProp || DEFAULT_SETTINGS);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   useEffect(() => {
-    if (settingsProp) {
+    if (settingsProp && !settingsLoaded) {
       setSettings(settingsProp);
     }
-  }, [settingsProp]);
+  }, [settingsProp, settingsLoaded]);
 
   useEffect(() => {
     setCurrentTime(new Date());
-    const interval = setInterval(() => {
+    const clockInterval = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
 
@@ -348,34 +351,30 @@ export function AttendancePanel({ attendance, schedule, onUpdate, settings: sett
         const data = await apiRequest<SystemSettings>("/attendance/settings", {
           cache: "no-store",
         });
-        setSettings(data);
+        setSettings((current) => (settingsMatch(current, data) ? current : data));
+        setSettingsLoaded(true);
       } catch (err) {
         console.error("Failed to load settings in panel", err);
       }
     }
 
     fetchSettings();
+    const settingsInterval = setInterval(fetchSettings, 3000);
 
-    const settingsInterval = setInterval(fetchSettings, 5000);
-
-    const handleFocus = () => {
+    const handleRefresh = () => {
       fetchSettings();
     };
 
-    const handleSettingsUpdated = () => {
-      fetchSettings();
-    };
-
-    window.addEventListener("focus", handleFocus);
-    window.addEventListener("storage", handleSettingsUpdated);
-    window.addEventListener("attendance-settings-updated", handleSettingsUpdated);
+    window.addEventListener("focus", handleRefresh);
+    window.addEventListener("storage", handleRefresh);
+    window.addEventListener("attendance-settings-updated", handleRefresh);
 
     return () => {
-      clearInterval(interval);
+      clearInterval(clockInterval);
       clearInterval(settingsInterval);
-      window.removeEventListener("focus", handleFocus);
-      window.removeEventListener("storage", handleSettingsUpdated);
-      window.removeEventListener("attendance-settings-updated", handleSettingsUpdated);
+      window.removeEventListener("focus", handleRefresh);
+      window.removeEventListener("storage", handleRefresh);
+      window.removeEventListener("attendance-settings-updated", handleRefresh);
     };
   }, []);
 

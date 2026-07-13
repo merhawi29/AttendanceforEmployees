@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiRequest, ApiError } from "@/lib/api";
+import { normalizeTimeValue, formatToAmPm } from "@/lib/time-format";
 import { Loader2, AlertCircle, CheckCircle2, Settings, Clock, Timer, Save } from "lucide-react";
 
 interface SettingsState {
@@ -55,19 +56,30 @@ function SettingsContent() {
     setSaving(true);
     setError(null);
     setSuccess(null);
+
+    const payload: SettingsState = {
+      morningCheckInStart: normalizeTimeValue(settings.morningCheckInStart),
+      morningCheckInEnd: normalizeTimeValue(settings.morningCheckInEnd),
+      lunchStartTime: normalizeTimeValue(settings.lunchStartTime),
+      lunchReturnDeadline: normalizeTimeValue(settings.lunchReturnDeadline),
+      workEndTime: normalizeTimeValue(settings.workEndTime),
+      gracePeriodMinutes: Number(settings.gracePeriodMinutes),
+    };
+
     try {
-      const updated = await apiRequest<SettingsState>("/admin/settings", {
+      await apiRequest<SettingsState>("/admin/settings", {
         method: "POST",
-        body: JSON.stringify({
-          ...settings,
-          gracePeriodMinutes: Number(settings.gracePeriodMinutes),
-        }),
+        body: JSON.stringify(payload),
+      });
+      const verified = await apiRequest<SettingsState>("/attendance/settings", {
         cache: "no-store",
       });
-      setSettings(updated);
+      setSettings(verified);
       localStorage.setItem("attendance-settings-updated", String(Date.now()));
       window.dispatchEvent(new Event("attendance-settings-updated"));
-      setSuccess("Settings updated successfully!");
+      setSuccess(
+        `Settings saved. Lunch break starts at ${formatToAmPm(verified.lunchStartTime)}.`
+      );
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to save settings");
     } finally {
@@ -120,7 +132,12 @@ function SettingsContent() {
                   id="morning-start"
                   type="time"
                   value={settings.morningCheckInStart}
-                  onChange={(e) => setSettings({ ...settings, morningCheckInStart: e.target.value })}
+                  onChange={(e) =>
+                    setSettings((current) => ({
+                      ...current,
+                      morningCheckInStart: normalizeTimeValue(e.target.value),
+                    }))
+                  }
                   required
                   className="bg-white"
                 />
@@ -131,7 +148,12 @@ function SettingsContent() {
                   id="morning-end"
                   type="time"
                   value={settings.morningCheckInEnd}
-                  onChange={(e) => setSettings({ ...settings, morningCheckInEnd: e.target.value })}
+                  onChange={(e) =>
+                    setSettings((current) => ({
+                      ...current,
+                      morningCheckInEnd: normalizeTimeValue(e.target.value),
+                    }))
+                  }
                   required
                   className="bg-white"
                 />
@@ -145,10 +167,18 @@ function SettingsContent() {
                   id="lunch-start"
                   type="time"
                   value={settings.lunchStartTime}
-                  onChange={(e) => setSettings({ ...settings, lunchStartTime: e.target.value })}
+                  onChange={(e) =>
+                    setSettings((current) => ({
+                      ...current,
+                      lunchStartTime: normalizeTimeValue(e.target.value),
+                    }))
+                  }
                   required
                   className="bg-white"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Employees see lunch available after {formatToAmPm(settings.lunchStartTime)}.
+                </p>
               </div>
               <div className="space-y-1">
                 <Label htmlFor="lunch-deadline">Lunch Return Deadline</Label>
@@ -156,7 +186,12 @@ function SettingsContent() {
                   id="lunch-deadline"
                   type="time"
                   value={settings.lunchReturnDeadline}
-                  onChange={(e) => setSettings({ ...settings, lunchReturnDeadline: e.target.value })}
+                  onChange={(e) =>
+                    setSettings((current) => ({
+                      ...current,
+                      lunchReturnDeadline: normalizeTimeValue(e.target.value),
+                    }))
+                  }
                   required
                   className="bg-white"
                 />
@@ -170,7 +205,12 @@ function SettingsContent() {
                   id="work-end"
                   type="time"
                   value={settings.workEndTime}
-                  onChange={(e) => setSettings({ ...settings, workEndTime: e.target.value })}
+                  onChange={(e) =>
+                    setSettings((current) => ({
+                      ...current,
+                      workEndTime: normalizeTimeValue(e.target.value),
+                    }))
+                  }
                   required
                   className="bg-white"
                 />
