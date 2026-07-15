@@ -7,36 +7,57 @@ export interface EatDateTimeParts {
 }
 
 export const getEatParts = (now: Date = new Date()): EatDateTimeParts => {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Africa/Addis_Ababa",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(now);
+  const getPart = (type: string) => Number(parts.find((p) => p.type === type)?.value);
   return {
-    year: now.getFullYear(),
-    month: now.getMonth() + 1,
-    day: now.getDate(),
-    hour: now.getHours(),
-    minute: now.getMinutes(),
+    year: getPart("year"),
+    month: getPart("month"),
+    day: getPart("day"),
+    hour: getPart("hour"),
+    minute: getPart("minute"),
   };
 };
 
 export const getMinutesSinceMidnightEat = (now: Date = new Date()): number => {
-  return now.getHours() * 60 + now.getMinutes();
+  const parts = getEatParts(now);
+  return parts.hour * 60 + parts.minute;
+};
+
+export const getDateMinutesEat = (date: Date): number => {
+  const parts = getEatParts(date);
+  return parts.hour * 60 + parts.minute;
 };
 
 export const getTodayGregorianDate = (now: Date = new Date()): Date => {
-  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  const parts = getEatParts(now);
+  return new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
 };
 
 export const toEthiopianDate = (
   now: Date = new Date()
 ): { year: number; month: number; day: number } => {
+  const parts = getEatParts(now);
   return {
-    year: now.getFullYear(),
-    month: now.getMonth() + 1,
-    day: now.getDate(),
+    year: parts.year,
+    month: parts.month,
+    day: parts.day,
   };
 };
 
 export const toEthiopianDateString = (now: Date = new Date()): string => {
+  const parts = getEatParts(now);
   const pad = (value: number) => String(value).padStart(2, "0");
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}`;
 };
 
 export const formatEthiopianDateLabel = (ethiopianDate: string): string => {

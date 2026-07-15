@@ -8,6 +8,7 @@ import {
   formatEthiopianDateLabel,
   formatTimeLabel,
   getMinutesSinceMidnightEat,
+  getDateMinutesEat,
   toEthiopianDateString,
   toMinutes,
 } from "../utils/ethiopian-time";
@@ -388,6 +389,9 @@ const validatePunch = (
       if (attendance.lunchReturn) {
         throw new AppError(409, "Lunch return already recorded", undefined, "DUPLICATE_PUNCH");
       }
+      if (now.getTime() <= new Date(attendance.lunchOut).getTime()) {
+        throw new AppError(400, "Lunch return must be after lunch out", undefined, "INVALID_TIME_ORDER");
+      }
       const isLate = minutes > windows.lunchReturnDeadline + windows.gracePeriodMinutes; // after deadline + grace period
       logger.info({ punch, serverTime, accepted: true, isLate }, "Punch ACCEPTED");
       return {
@@ -672,7 +676,7 @@ export const attendanceService = {
     const resolvedFinalOut = resolveTime(data.finalOut, record.finalOut);
 
     if (resolvedMorningIn) {
-      const mins = resolvedMorningIn.getHours() * 60 + resolvedMorningIn.getMinutes();
+      const mins = getDateMinutesEat(resolvedMorningIn);
       if (mins < windows.morningInStart || mins > windows.morningInEnd) {
         throw new AppError(
           400,
@@ -684,7 +688,7 @@ export const attendanceService = {
     }
 
     if (resolvedLunchOut) {
-      const mins = resolvedLunchOut.getHours() * 60 + resolvedLunchOut.getMinutes();
+      const mins = getDateMinutesEat(resolvedLunchOut);
       if (mins < windows.lunchOutStart) {
         const allowedTime = formatTimeLabel(windows.raw.lunchOut.startHour, windows.raw.lunchOut.startMinute);
         logger.warn(

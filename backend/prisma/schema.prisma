@@ -94,6 +94,12 @@ model EmployeeDevice {
   operatingSystem String?  @map("operating_system")
   ipAddress       String?  @map("ip_address")
   userAgent       String?  @map("user_agent")
+  platform        String?
+  maxTouchPoints  Int?      @map("max_touch_points")
+  screenWidth     Int?      @map("screen_width")
+  screenHeight    Int?      @map("screen_height")
+  isMobile        Boolean?  @map("is_mobile")
+  fingerprint     String?   @db.Text
   isApproved      Boolean  @default(false) @map("is_approved")
   isActive        Boolean  @default(true) @map("is_active")
   createdAt       DateTime @default(now()) @map("created_at")

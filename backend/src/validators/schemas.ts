@@ -153,6 +153,11 @@ export const registerDeviceSchema = z.object({
     browser: z.string().trim().max(100).optional(),
     operatingSystem: z.string().trim().max(100).optional(),
     userAgent: z.string().trim().max(500).optional(),
+    platform: z.string().trim().max(100).optional(),
+    maxTouchPoints: z.number().int().optional(),
+    screenWidth: z.number().int().optional(),
+    screenHeight: z.number().int().optional(),
+    fingerprint: z.string().trim().optional(),
   }),
 });
 

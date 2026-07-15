@@ -9,10 +9,77 @@ interface RegisterDeviceInput {
   operatingSystem?: string;
   userAgent?: string;
   ipAddress?: string;
+  platform?: string;
+  maxTouchPoints?: number;
+  screenWidth?: number;
+  screenHeight?: number;
+  fingerprint?: string;
+}
+
+export function validateDeviceFingerprint(device: {
+  userAgent?: string | null;
+  platform?: string | null;
+  maxTouchPoints?: number | null;
+  screenWidth?: number | null;
+  screenHeight?: number | null;
+}): { valid: boolean; reason?: string } {
+  const ua = device.userAgent || "";
+  const platform = device.platform || "";
+  const maxTouchPoints = device.maxTouchPoints || 0;
+  const screenWidth = device.screenWidth || 0;
+  const screenHeight = device.screenHeight || 0;
+
+  // 1. Block common mobile User-Agents
+  const mobileUAPatterns = [/Android/i, /iPhone/i, /iPad/i, /iPod/i, /Mobile/i, /Tablet/i, /Opera Mini/i, /IEMobile/i];
+  if (mobileUAPatterns.some((p) => p.test(ua))) {
+    return { valid: false, reason: "Mobile user-agent detected." };
+  }
+
+  // 2. Block iPad in Desktop mode (platform MacIntel + touch capability)
+  if (platform === "MacIntel" && maxTouchPoints > 0) {
+    return { valid: false, reason: "iPad/iOS device in Desktop Mode detected." };
+  }
+
+  // 3. Block Android in Desktop mode
+  const isArmLinux = platform.toLowerCase().includes("arm") || platform.toLowerCase().includes("aarch64") || platform.toLowerCase().includes("android");
+  if (isArmLinux) {
+    return { valid: false, reason: "ARM/Android device detected." };
+  }
+
+  // 4. Block tablets & mobile screens based on size and touch
+  const minDimension = Math.min(screenWidth, screenHeight);
+  if (minDimension > 0 && minDimension < 600 && maxTouchPoints > 0) {
+    return { valid: false, reason: "Mobile or tablet screen characteristics detected." };
+  }
+
+  // 5. Only allow approved desktop operating systems/platforms:
+  const isWindows = platform.startsWith("Win");
+  const isMac = platform === "MacIntel" && maxTouchPoints === 0;
+  const isLinuxDesktop = (platform.startsWith("Linux") || platform.includes("x86")) && !isArmLinux;
+
+  if (!platform) {
+    return { valid: false, reason: "Unable to verify device platform." };
+  }
+
+  if (!isWindows && !isMac && !isLinuxDesktop) {
+    return { valid: false, reason: "Only Windows, macOS, or Linux desktop computers are allowed." };
+  }
+
+  return { valid: true };
 }
 
 export const deviceService = {
   async register(data: RegisterDeviceInput) {
+    const validation = validateDeviceFingerprint(data);
+    if (!validation.valid) {
+      throw new AppError(
+        403,
+        "Attendance is only allowed from approved desktop or laptop computers.",
+        undefined,
+        "DEVICE_FORBIDDEN"
+      );
+    }
+
     const existing = await prisma.employeeDevice.findUnique({
       where: { deviceId: data.deviceId },
     });
@@ -29,6 +96,12 @@ export const deviceService = {
           operatingSystem: data.operatingSystem ?? existing.operatingSystem,
           userAgent: data.userAgent ?? existing.userAgent,
           ipAddress: data.ipAddress ?? existing.ipAddress,
+          platform: data.platform ?? existing.platform,
+          maxTouchPoints: data.maxTouchPoints ?? existing.maxTouchPoints,
+          screenWidth: data.screenWidth ?? existing.screenWidth,
+          screenHeight: data.screenHeight ?? existing.screenHeight,
+          fingerprint: data.fingerprint ?? existing.fingerprint,
+          isMobile: false,
           lastUsedAt: new Date(),
           isActive: true,
         },
@@ -46,6 +119,12 @@ export const deviceService = {
         operatingSystem: data.operatingSystem,
         userAgent: data.userAgent,
         ipAddress: data.ipAddress,
+        platform: data.platform,
+        maxTouchPoints: data.maxTouchPoints,
+        screenWidth: data.screenWidth,
+        screenHeight: data.screenHeight,
+        fingerprint: data.fingerprint,
+        isMobile: false,
         lastUsedAt: new Date(),
       },
       include: { user: { select: { id: true, name: true, email: true, employeeId: true, department: true } } },
@@ -132,7 +211,7 @@ export const deviceService = {
     });
   },
 
-  formatDevice(device: Record<string, unknown>) {
+  formatDevice(device: Record<string, any>) {
     return {
       id: device.id,
       employeeId: device.employeeId,
@@ -141,6 +220,12 @@ export const deviceService = {
       browser: device.browser,
       operatingSystem: device.operatingSystem,
       ipAddress: device.ipAddress,
+      platform: device.platform,
+      maxTouchPoints: device.maxTouchPoints,
+      screenWidth: device.screenWidth,
+      screenHeight: device.screenHeight,
+      isMobile: device.isMobile,
+      fingerprint: device.fingerprint,
       isApproved: device.isApproved,
       isActive: device.isActive,
       createdAt: device.createdAt instanceof Date ? device.createdAt.toISOString() : device.createdAt,

@@ -2,6 +2,7 @@ import { Response, NextFunction } from "express";
 import prisma from "../config/database";
 import { AuthRequest } from "../types";
 import { AppError } from "../utils/response";
+import { validateDeviceFingerprint } from "../services/device.service";
 
 export const deviceRestriction = async (
   req: AuthRequest,
@@ -42,6 +43,26 @@ export const deviceRestriction = async (
     if (device.employeeId !== req.user!.userId) {
       return next(
         new AppError(403, "Device is registered to another user.", undefined, "DEVICE_MISMATCH")
+      );
+    }
+
+    // Dynamic fingerprint validation on every check
+    const validation = validateDeviceFingerprint({
+      userAgent: device.userAgent,
+      platform: device.platform,
+      maxTouchPoints: device.maxTouchPoints,
+      screenWidth: device.screenWidth,
+      screenHeight: device.screenHeight,
+    });
+
+    if (!validation.valid) {
+      // Invalidate the device immediately in the database
+      await prisma.employeeDevice.update({
+        where: { id: device.id },
+        data: { isApproved: false, isActive: false },
+      });
+      return next(
+        new AppError(403, "Attendance is only allowed from approved desktop or laptop computers.", undefined, "DEVICE_FORBIDDEN")
       );
     }
 
