@@ -21,26 +21,6 @@ export const config = {
   ipRestrictionEnabled: process.env.IP_RESTRICTION_ENABLED !== "false",
   cookieDomain: process.env.COOKIE_DOMAIN || undefined,
   logLevel: process.env.LOG_LEVEL || "info",
-  attendance: {
-    morningIn: {
-      startHour: 1,
-      startMinute: 30,
-      endHour: 8,
-      endMinute: 45,
-    },
-    lunchOut: {
-      startHour: 12,
-      startMinute: 30,
-    },
-    lunchReturn: {
-      deadlineHour: 13,
-      deadlineMinute: 30,
-    },
-    finalOut: {
-      startHour: 17,
-      startMinute: 30,
-    },
-  },
 };
 
 export const validateConfig = (): void => {

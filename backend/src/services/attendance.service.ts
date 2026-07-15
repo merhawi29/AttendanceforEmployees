@@ -1,6 +1,5 @@
 import { Attendance, AttendanceStatus, Prisma } from "@prisma/client";
 import prisma from "../config/database";
-import { config } from "../config";
 import { settingsService } from "./settings.service";
 import { AttendanceSchedule, PunchType } from "../types";
 import { getTodayDate } from "../utils/helpers";
@@ -13,6 +12,7 @@ import {
   toMinutes,
 } from "../utils/ethiopian-time";
 import { AppError } from "../utils/response";
+import { logger } from "../utils/logger";
 
 interface AttendanceActionInput {
   userId: string;
@@ -39,7 +39,13 @@ type AttendanceRecord = Attendance & {
 };
 
 const parseTimeStr = (timeStr: string) => {
-  const [hour, minute] = timeStr.split(":").map(Number);
+  const parts = timeStr.split(":");
+  const hour = Number(parts[0]);
+  const minute = parts.length > 1 ? Number(parts[1]) : 0;
+  if (Number.isNaN(hour) || Number.isNaN(minute)) {
+    logger.error({ timeStr }, "Invalid time format in settings, using fallback");
+    return { hour: 0, minute: 0 };
+  }
   return { hour, minute };
 };
 
@@ -305,6 +311,22 @@ const validatePunch = (
 ): { data: Prisma.AttendanceUpdateInput; message: string } => {
   const minutes = getMinutesSinceMidnightEat(now);
   const windows = getWindowConfig();
+  const serverTime = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
+
+  logger.info(
+    {
+      punch,
+      serverTime,
+      serverMinutes: minutes,
+      windows: {
+        morningIn: `${windows.morningInStart}-${windows.morningInEnd}`,
+        lunchOutStart: windows.lunchOutStart,
+        lunchReturnDeadline: windows.lunchReturnDeadline,
+        finalOutStart: windows.finalOutStart,
+      },
+    },
+    `Attendance punch validation: ${punch}`
+  );
 
   switch (punch) {
     case "MORNING_IN": {
@@ -327,6 +349,7 @@ const validatePunch = (
           "OUTSIDE_TIME_WINDOW"
         );
       }
+      logger.info({ punch, serverTime, accepted: true }, "Punch ACCEPTED");
       return {
         data: {
           morningIn: now,
@@ -340,13 +363,19 @@ const validatePunch = (
         throw new AppError(409, "Lunch out already recorded", undefined, "DUPLICATE_PUNCH");
       }
       if (minutes < windows.lunchOutStart) {
+        const allowedTime = formatTimeLabel(windows.raw.lunchOut.startHour, windows.raw.lunchOut.startMinute);
+        logger.warn(
+          { punch, serverTime, serverMinutes: minutes, allowedStart: windows.lunchOutStart, allowedTime },
+          "LUNCH OUT REJECTED: before allowed time"
+        );
         throw new AppError(
           400,
-          `Lunch out is available after ${formatTimeLabel(windows.raw.lunchOut.startHour, windows.raw.lunchOut.startMinute)}`,
+          `Lunch break is not available until ${allowedTime}.`,
           undefined,
           "OUTSIDE_TIME_WINDOW"
         );
       }
+      logger.info({ punch, serverTime, accepted: true }, "Punch ACCEPTED");
       return {
         data: { lunchOut: now, status: attendance.status === "LATE" ? "LATE" : "PRESENT" },
         message: "Lunch out recorded",
@@ -360,6 +389,7 @@ const validatePunch = (
         throw new AppError(409, "Lunch return already recorded", undefined, "DUPLICATE_PUNCH");
       }
       const isLate = minutes > windows.lunchReturnDeadline + windows.gracePeriodMinutes; // after deadline + grace period
+      logger.info({ punch, serverTime, accepted: true, isLate }, "Punch ACCEPTED");
       return {
         data: {
           lunchReturn: now,
@@ -380,6 +410,7 @@ const validatePunch = (
           "OUTSIDE_TIME_WINDOW"
         );
       }
+      logger.info({ punch, serverTime, accepted: true }, "Punch ACCEPTED");
       return {
         data: { finalOut: now, status: attendance.status === "LATE" ? "LATE" : "PRESENT" },
         message: "Final checkout recorded",
@@ -619,6 +650,12 @@ export const attendanceService = {
     }
 
     const windows = getWindowConfig();
+    const serverTime = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
+
+    logger.info(
+      { attendanceId: id, userId: record.userId, serverTime, data },
+      "Admin edit attendance: validating"
+    );
 
     const resolveTime = (
       value: string | null | undefined,
@@ -649,9 +686,14 @@ export const attendanceService = {
     if (resolvedLunchOut) {
       const mins = resolvedLunchOut.getHours() * 60 + resolvedLunchOut.getMinutes();
       if (mins < windows.lunchOutStart) {
+        const allowedTime = formatTimeLabel(windows.raw.lunchOut.startHour, windows.raw.lunchOut.startMinute);
+        logger.warn(
+          { attendanceId: id, lunchOut: data.lunchOut, serverMinutes: mins, allowedStart: windows.lunchOutStart, allowedTime },
+          "Admin edit LUNCH OUT REJECTED: before allowed time"
+        );
         throw new AppError(
           400,
-          `Lunch out must be after ${formatTimeLabel(windows.raw.lunchOut.startHour, windows.raw.lunchOut.startMinute)}`,
+          `Lunch break is not available until ${allowedTime}.`,
           undefined,
           "OUTSIDE_TIME_WINDOW"
         );
