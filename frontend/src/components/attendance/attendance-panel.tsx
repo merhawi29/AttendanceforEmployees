@@ -445,7 +445,12 @@ export function AttendancePanel({ attendance, schedule, onUpdate, settings: sett
       )}
 
       {showClosedToast && (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700 animate-in fade-in slide-in-from-top-2 duration-300">
+        <div
+          className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700 shadow-lg"
+          style={{
+            animation: "toastSlideIn 0.3s ease-out, toastSlideOut 0.3s ease-in 4.7s forwards",
+          }}
+        >
           <AlertCircle className="h-4 w-4 shrink-0" />
           Morning attendance is closed. Lunch Break at {formatToAmPm(settings.lunchStartTime)}
         </div>
