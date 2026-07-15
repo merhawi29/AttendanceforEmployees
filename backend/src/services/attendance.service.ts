@@ -618,6 +618,92 @@ export const attendanceService = {
       throw new AppError(404, "Attendance record not found", undefined, "RECORD_NOT_FOUND");
     }
 
+    const windows = getWindowConfig();
+
+    const resolveTime = (
+      value: string | null | undefined,
+      existing: Date | null
+    ): Date | null => {
+      if (value === undefined) return existing;
+      if (value === null) return null;
+      return new Date(value);
+    };
+
+    const resolvedMorningIn = resolveTime(data.morningIn, record.morningIn);
+    const resolvedLunchOut = resolveTime(data.lunchOut, record.lunchOut);
+    const resolvedLunchReturn = resolveTime(data.lunchReturn, record.lunchReturn);
+    const resolvedFinalOut = resolveTime(data.finalOut, record.finalOut);
+
+    if (resolvedMorningIn) {
+      const mins = resolvedMorningIn.getHours() * 60 + resolvedMorningIn.getMinutes();
+      if (mins < windows.morningInStart || mins > windows.morningInEnd) {
+        throw new AppError(
+          400,
+          `Morning check-in must be between ${formatTimeLabel(windows.raw.morningIn.startHour, windows.raw.morningIn.startMinute)} and ${formatTimeLabel(windows.raw.morningIn.endHour, windows.raw.morningIn.endMinute)}`,
+          undefined,
+          "OUTSIDE_TIME_WINDOW"
+        );
+      }
+    }
+
+    if (resolvedLunchOut) {
+      const mins = resolvedLunchOut.getHours() * 60 + resolvedLunchOut.getMinutes();
+      if (mins < windows.lunchOutStart) {
+        throw new AppError(
+          400,
+          `Lunch out must be after ${formatTimeLabel(windows.raw.lunchOut.startHour, windows.raw.lunchOut.startMinute)}`,
+          undefined,
+          "OUTSIDE_TIME_WINDOW"
+        );
+      }
+    }
+
+    if (resolvedLunchReturn) {
+      if (!resolvedLunchOut) {
+        throw new AppError(
+          400,
+          "Lunch out is required before setting lunch return",
+          undefined,
+          "PREREQUISITE_REQUIRED"
+        );
+      }
+      if (resolvedLunchReturn <= resolvedLunchOut) {
+        throw new AppError(
+          400,
+          "Lunch return must be after lunch out",
+          undefined,
+          "INVALID_TIME_ORDER"
+        );
+      }
+    }
+
+    if (resolvedFinalOut) {
+      if (resolvedMorningIn && resolvedFinalOut <= resolvedMorningIn) {
+        throw new AppError(
+          400,
+          "Final checkout must be after morning check-in",
+          undefined,
+          "INVALID_TIME_ORDER"
+        );
+      }
+      if (resolvedLunchReturn && resolvedFinalOut <= resolvedLunchReturn) {
+        throw new AppError(
+          400,
+          "Final checkout must be after lunch return",
+          undefined,
+          "INVALID_TIME_ORDER"
+        );
+      }
+      if (!resolvedLunchReturn && resolvedLunchOut && resolvedFinalOut <= resolvedLunchOut) {
+        throw new AppError(
+          400,
+          "Final checkout must be after lunch out",
+          undefined,
+          "INVALID_TIME_ORDER"
+        );
+      }
+    }
+
     const updates: Prisma.AttendanceUpdateInput = {};
     if (data.morningIn !== undefined) {
       updates.morningIn = data.morningIn ? new Date(data.morningIn) : null;
