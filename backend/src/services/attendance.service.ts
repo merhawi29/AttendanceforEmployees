@@ -360,11 +360,24 @@ const validatePunch = (
       };
     }
     case "LUNCH_OUT": {
+      const allowedTime = formatTimeLabel(windows.raw.lunchOut.startHour, windows.raw.lunchOut.startMinute);
+      const isBeforeAllowed = minutes < windows.lunchOutStart;
+      console.log("----------------------------------------");
+      console.log("[LUNCH_OUT_VALIDATION]");
+      console.log(`- Current Server Time (UTC): ${now.toISOString()}`);
+      console.log(`- Current Server Local/EAT:  ${serverTime}`);
+      console.log(`- Attendance Type:           ${punch}`);
+      console.log(`- Allowed Start Time:        ${allowedTime} (${windows.lunchOutStart} mins)`);
+      console.log(`- Current EAT Minutes:       ${minutes} mins`);
+      console.log(`- Validation Result:         ${isBeforeAllowed ? "REJECTED (Too early)" : "PASSED"}`);
+      console.log("----------------------------------------");
+
       if (attendance.lunchOut) {
+        console.log("[LUNCH_OUT_VALIDATION] Result: REJECTED - Already recorded");
         throw new AppError(409, "Lunch out already recorded", undefined, "DUPLICATE_PUNCH");
       }
-      if (minutes < windows.lunchOutStart) {
-        const allowedTime = formatTimeLabel(windows.raw.lunchOut.startHour, windows.raw.lunchOut.startMinute);
+      if (isBeforeAllowed) {
+        console.log("[LUNCH_OUT_VALIDATION] Result: REJECTED - Lunch out before 12:30 PM");
         logger.warn(
           { punch, serverTime, serverMinutes: minutes, allowedStart: windows.lunchOutStart, allowedTime },
           "LUNCH OUT REJECTED: before allowed time"
@@ -376,6 +389,7 @@ const validatePunch = (
           "OUTSIDE_TIME_WINDOW"
         );
       }
+      console.log("[LUNCH_OUT_VALIDATION] Result: ACCEPTED");
       logger.info({ punch, serverTime, accepted: true }, "Punch ACCEPTED");
       return {
         data: { lunchOut: now, status: attendance.status === "LATE" ? "LATE" : "PRESENT" },
