@@ -5,7 +5,7 @@ import { getClientIp } from "../utils/helpers";
 import { asyncHandler, sendSuccess } from "../utils/response";
 
 export const registerDevice = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { deviceId, deviceName, browser, operatingSystem, userAgent } = req.body;
+  const { deviceId, deviceName, browser, operatingSystem, userAgent, platform, maxTouchPoints, screenWidth, screenHeight, fingerprint } = req.body;
   const ipAddress = getClientIp(req);
 
   const device = await deviceService.register({
@@ -16,6 +16,11 @@ export const registerDevice = asyncHandler(async (req: AuthRequest, res: Respons
     operatingSystem,
     userAgent,
     ipAddress,
+    platform,
+    maxTouchPoints,
+    screenWidth,
+    screenHeight,
+    fingerprint,
   });
 
   sendSuccess(res, device, "Device registered successfully", 201);

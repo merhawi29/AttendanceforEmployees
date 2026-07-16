@@ -75,8 +75,30 @@ export function getDeviceInfo() {
   const colorDepth = window.screen.colorDepth || 0;
   const dpr = window.devicePixelRatio || 1;
 
+  const ua = navigator.userAgent;
+  const uaData = (navigator as any).userAgentData || null;
+
+  let detectedType = "unknown";
+  const hasAndroid = /Android/i.test(ua);
+  const hasIPhone = /iPhone/i.test(ua);
+  const hasIPad = /iPad/i.test(ua);
+  const hasMobile = /Mobile/i.test(ua);
+  const hasTablet = /Tablet/i.test(ua);
+  const isIPadDesktopMode = platform === "MacIntel" && maxTouchPoints > 0;
+  const isArmPlatform = platform.toLowerCase().includes("arm") || platform.toLowerCase().includes("aarch64");
+  const minDim = Math.min(screenWidth, screenHeight);
+  const hasSmallTouchScreen = minDim > 0 && minDim < 768 && maxTouchPoints > 0;
+
+  if (hasIPhone || hasIPad || hasAndroid || isIPadDesktopMode) {
+    detectedType = "mobile";
+  } else if (hasTablet || hasSmallTouchScreen) {
+    detectedType = "tablet";
+  } else if (platform.startsWith("Win") || platform === "MacIntel" || platform.startsWith("Linux")) {
+    detectedType = "desktop";
+  }
+
   const payload = [
-    navigator.userAgent,
+    ua,
     platform,
     maxTouchPoints,
     screenWidth,
@@ -86,7 +108,7 @@ export function getDeviceInfo() {
     canvasFp
   ].join("###");
 
-  return {
+  const deviceInfo = {
     deviceId: getDeviceId(),
     deviceName: `${getOS()} - ${getBrowser()}`,
     browser: getBrowser(),
@@ -98,6 +120,20 @@ export function getDeviceInfo() {
     screenHeight,
     fingerprint: cyrb53(payload),
   };
+
+  console.group("[DeviceInfo] Detected device information");
+  console.log("navigator.userAgent:", ua);
+  console.log("navigator.userAgentData:", uaData ? JSON.parse(JSON.stringify(uaData)) : "not available");
+  console.log("navigator.platform:", platform);
+  console.log("navigator.maxTouchPoints:", maxTouchPoints);
+  console.log("screen.width:", screenWidth);
+  console.log("screen.height:", screenHeight);
+  console.log("window.devicePixelRatio:", dpr);
+  console.log("detected device type:", detectedType);
+  console.log("payload sent to server:", deviceInfo);
+  console.groupEnd();
+
+  return deviceInfo;
 }
 
 export function resetDeviceId(): void {

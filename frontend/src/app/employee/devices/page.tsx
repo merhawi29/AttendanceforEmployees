@@ -56,7 +56,7 @@ function EmployeeDevicesContent() {
         method: "POST",
         body: JSON.stringify(info),
       });
-      setSuccess("Device registered! Waiting for admin approval.");
+      setSuccess("Device registration request submitted successfully. Waiting for administrator approval.");
       fetchData();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Registration failed");

@@ -22,63 +22,127 @@ export function validateDeviceFingerprint(device: {
   maxTouchPoints?: number | null;
   screenWidth?: number | null;
   screenHeight?: number | null;
-}): { valid: boolean; reason?: string } {
+}): { valid: boolean; reason?: string; deviceType?: string; signals?: Record<string, any> } {
   const ua = device.userAgent || "";
   const platform = device.platform || "";
   const maxTouchPoints = device.maxTouchPoints || 0;
   const screenWidth = device.screenWidth || 0;
   const screenHeight = device.screenHeight || 0;
 
-  // 1. Block common mobile User-Agents
-  const mobileUAPatterns = [/Android/i, /iPhone/i, /iPad/i, /iPod/i, /Mobile/i, /Tablet/i, /Opera Mini/i, /IEMobile/i];
-  if (mobileUAPatterns.some((p) => p.test(ua))) {
-    return { valid: false, reason: "Mobile user-agent detected." };
-  }
+  const signals: Record<string, any> = {
+    userAgent: ua,
+    platform,
+    maxTouchPoints,
+    screenWidth,
+    screenHeight,
+  };
 
-  // 2. Block iPad in Desktop mode (platform MacIntel + touch capability)
-  if (platform === "MacIntel" && maxTouchPoints > 0) {
-    return { valid: false, reason: "iPad/iOS device in Desktop Mode detected." };
-  }
+  // --- Mobile signal detection ---
 
-  // 3. Block Android in Desktop mode
-  const isArmLinux = platform.toLowerCase().includes("arm") || platform.toLowerCase().includes("aarch64") || platform.toLowerCase().includes("android");
-  if (isArmLinux) {
-    return { valid: false, reason: "ARM/Android device detected." };
-  }
+  const hasAndroidUA = /Android/i.test(ua);
+  const hasIPhoneUA = /iPhone/i.test(ua);
+  const hasIPadUA = /iPad/i.test(ua);
+  const hasIPodUA = /iPod/i.test(ua);
+  const hasMobileUA = /Mobile/i.test(ua);
+  const hasTabletUA = /Tablet/i.test(ua);
+  const hasOperaMiniUA = /Opera Mini/i.test(ua);
+  const hasIEMobileUA = /IEMobile/i.test(ua);
 
-  // 4. Block tablets & mobile screens based on size and touch
+  const hasAnyMobileUA = hasAndroidUA || hasIPhoneUA || hasIPadUA || hasIPodUA || hasMobileUA || hasTabletUA || hasOperaMiniUA || hasIEMobileUA;
+
+  const isArmPlatform = platform.toLowerCase().includes("arm") || platform.toLowerCase().includes("aarch64");
+  const isAndroidPlatform = platform.toLowerCase().includes("android");
+  const isIPadDesktopMode = platform === "MacIntel" && maxTouchPoints > 0;
+
   const minDimension = Math.min(screenWidth, screenHeight);
-  if (minDimension > 0 && minDimension < 600 && maxTouchPoints > 0) {
-    return { valid: false, reason: "Mobile or tablet screen characteristics detected." };
+  const hasSmallTouchScreen = minDimension > 0 && minDimension < 768 && maxTouchPoints > 0;
+
+  const mobileSignals = [
+    hasAnyMobileUA ? "mobile-ua" : null,
+    isAndroidPlatform ? "android-platform" : null,
+    isIPadDesktopMode ? "ipad-desktop-mode" : null,
+    isArmPlatform ? "arm-platform" : null,
+    hasSmallTouchScreen ? "small-touch-screen" : null,
+  ].filter(Boolean);
+
+  let detectedType = "desktop";
+  if (mobileSignals.length > 0) {
+    if (hasIPhoneUA || hasIPadUA || hasIPodUA || isIPadDesktopMode) {
+      detectedType = "ios-device";
+    } else if (hasAndroidUA || isAndroidPlatform) {
+      detectedType = "android-device";
+    } else if (hasTabletUA || hasSmallTouchScreen) {
+      detectedType = "tablet";
+    } else {
+      detectedType = "mobile";
+    }
   }
 
-  // 5. Only allow approved desktop operating systems/platforms:
-  const isWindows = platform.startsWith("Win");
-  const isMac = platform === "MacIntel" && maxTouchPoints === 0;
-  const isLinuxDesktop = (platform.startsWith("Linux") || platform.includes("x86")) && !isArmLinux;
+  signals.detectedType = detectedType;
+  signals.mobileSignals = mobileSignals;
+
+  console.log("[DeviceValidation] Input signals:", JSON.stringify(signals, null, 2));
+
+  // --- Block mobile devices ---
+
+  if (hasIPhoneUA || hasIPadUA || hasIPodUA || isIPadDesktopMode) {
+    console.log("[DeviceValidation] BLOCKED: iOS device detected", mobileSignals);
+    return { valid: false, reason: "Mobile devices (iPhone, iPad, iPod) are not allowed. Please use a desktop or laptop computer.", deviceType: detectedType, signals };
+  }
+
+  if (hasAndroidUA || isAndroidPlatform) {
+    console.log("[DeviceValidation] BLOCKED: Android device detected", mobileSignals);
+    return { valid: false, reason: "Mobile devices (Android) are not allowed. Please use a desktop or laptop computer.", deviceType: detectedType, signals };
+  }
+
+  if (hasOperaMiniUA || hasIEMobileUA) {
+    console.log("[DeviceValidation] BLOCKED: Mobile browser detected", mobileSignals);
+    return { valid: false, reason: "Mobile browsers are not allowed. Please use a desktop or laptop computer.", deviceType: detectedType, signals };
+  }
+
+  if (hasSmallTouchScreen) {
+    console.log("[DeviceValidation] BLOCKED: Tablet/small touch screen detected", mobileSignals);
+    return { valid: false, reason: "Tablet devices are not allowed. Please use a desktop or laptop computer.", deviceType: detectedType, signals };
+  }
+
+  if (hasMobileUA && !platform.startsWith("Win") && !platform.startsWith("Linux") && platform !== "MacIntel") {
+    console.log("[DeviceValidation] BLOCKED: Generic mobile device detected", mobileSignals);
+    return { valid: false, reason: "Mobile devices are not allowed. Please use a desktop or laptop computer.", deviceType: detectedType, signals };
+  }
+
+  // --- Allow desktop platforms ---
 
   if (!platform) {
-    return { valid: false, reason: "Unable to verify device platform." };
+    console.log("[DeviceValidation] BLOCKED: No platform information available", signals);
+    return { valid: false, reason: "Unable to verify device platform. Please use a supported desktop browser.", deviceType: "unknown", signals };
   }
 
-  if (!isWindows && !isMac && !isLinuxDesktop) {
-    return { valid: false, reason: "Only Windows, macOS, or Linux desktop computers are allowed." };
+  const isWindows = platform.startsWith("Win");
+  const isMac = platform === "MacIntel";
+  const isLinuxDesktop = platform.startsWith("Linux") && !isArmPlatform;
+
+  if (isWindows || isMac || isLinuxDesktop) {
+    console.log("[DeviceValidation] ALLOWED: Desktop detected", { platform, detectedType, isWindows, isMac, isLinuxDesktop });
+    return { valid: true, deviceType: "desktop", signals };
   }
 
-  return { valid: true };
+  console.log("[DeviceValidation] BLOCKED: Unrecognized platform", signals);
+  return { valid: false, reason: "Only Windows, macOS, or Linux desktop computers are allowed.", deviceType: "unknown", signals };
 }
 
 export const deviceService = {
   async register(data: RegisterDeviceInput) {
     const validation = validateDeviceFingerprint(data);
     if (!validation.valid) {
+      console.log("[DeviceRegister] Registration rejected:", validation.reason, validation.signals);
       throw new AppError(
         403,
-        "Attendance is only allowed from approved desktop or laptop computers.",
+        validation.reason || "Attendance is only allowed from approved desktop or laptop computers.",
         undefined,
         "DEVICE_FORBIDDEN"
       );
     }
+    console.log("[DeviceRegister] Device validated as:", validation.deviceType, "– proceeding with registration");
 
     const existing = await prisma.employeeDevice.findUnique({
       where: { deviceId: data.deviceId },
