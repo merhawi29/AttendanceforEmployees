@@ -7,36 +7,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  ADMIN
-  EMPLOYEE
-}
-
-enum AttendanceStatus {
-  PRESENT
-  LATE
-  ABSENT
-  HALF_DAY
-  LUNCH_MISSING
-}
-
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  password      String
-  name          String
-  employeeId    String         @unique @map("employee_id")
-  department    String?
-  role          Role           @default(EMPLOYEE)
-  isActive      Boolean        @default(true) @map("is_active")
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
-  attendances    Attendance[]
-  refreshTokens  RefreshToken[]
+  id              String           @id @default(cuid())
+  email           String           @unique
+  password        String
+  name            String
+  employeeId      String           @unique @map("employee_id")
+  department      String?
+  role            Role             @default(EMPLOYEE)
+  isActive        Boolean          @default(true) @map("is_active")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  resetExpire     DateTime?        @map("reset_expire")
+  resetToken      String?          @map("reset_token")
+  attendances     Attendance[]
   employeeDevices EmployeeDevice[]
-
-  resetToken    String?        @map("reset_token")
-  resetExpire   DateTime?      @map("reset_expire")
+  refreshTokens   RefreshToken[]
 
   @@map("users")
 }
@@ -86,26 +72,26 @@ model Attendance {
 }
 
 model EmployeeDevice {
-  id              String   @id @default(cuid())
-  employeeId      String   @map("employee_id")
-  deviceId        String   @unique @map("device_id")
-  deviceName      String?  @map("device_name")
+  id              String    @id @default(cuid())
+  employeeId      String    @map("employee_id")
+  deviceId        String    @unique @map("device_id")
+  deviceName      String?   @map("device_name")
   browser         String?
-  operatingSystem String?  @map("operating_system")
-  ipAddress       String?  @map("ip_address")
-  userAgent       String?  @map("user_agent")
-  platform        String?
-  maxTouchPoints  Int?      @map("max_touch_points")
-  screenWidth     Int?      @map("screen_width")
-  screenHeight    Int?      @map("screen_height")
-  isMobile        Boolean?  @map("is_mobile")
-  fingerprint     String?   @db.Text
-  isApproved      Boolean  @default(false) @map("is_approved")
-  isActive        Boolean  @default(true) @map("is_active")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  operatingSystem String?   @map("operating_system")
+  ipAddress       String?   @map("ip_address")
+  userAgent       String?   @map("user_agent")
+  isApproved      Boolean   @default(false) @map("is_approved")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
   lastUsedAt      DateTime? @map("last_used_at")
-  user            User     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  fingerprint     String?   @db.Text
+  isMobile        Boolean?  @map("is_mobile")
+  maxTouchPoints  Int?      @map("max_touch_points")
+  platform        String?
+  screenHeight    Int?      @map("screen_height")
+  screenWidth     Int?      @map("screen_width")
+  user            User      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@index([employeeId])
   @@index([deviceId])
@@ -118,4 +104,17 @@ model SystemSetting {
   value String @db.Text
 
   @@map("system_settings")
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+  HALF_DAY
+  LUNCH_MISSING
 }
