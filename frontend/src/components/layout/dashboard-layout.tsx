@@ -15,11 +15,13 @@ import {
   User,
   Settings,
   Smartphone,
+  FileText,
 } from "lucide-react";
 
 const adminLinks = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/attendance", label: "Attendance", icon: Clock },
+  { href: "/admin/reports", label: "Reports", icon: FileText },
   { href: "/admin/users", label: "Employees", icon: Users },
   { href: "/admin/devices", label: "Devices", icon: Smartphone },
   { href: "/admin/ips", label: "IP Whitelist", icon: Shield },

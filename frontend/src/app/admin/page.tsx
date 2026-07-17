@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { StatsCards } from "@/components/admin/stats-cards";
+import { ReportQuickActions } from "@/components/admin/report-quick-actions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,13 @@ import { Badge } from "@/components/ui/badge";
 import { DashboardStats, Attendance, AttendanceStatus, EmployeeDevice } from "@/types";
 import { apiRequest, ApiError } from "@/lib/api";
 import { formatTime, getStatusColor, formatStatusLabel } from "@/lib/utils";
+import {
+  computeReportSummary,
+  attendanceToRow,
+  REPORT_TYPE_LABELS,
+} from "@/lib/report-utils";
+import { exportToPdf, exportToExcel, printReport } from "@/lib/report-export";
+import { useAuth } from "@/contexts/auth-context";
 import {
   Loader2,
   Search,
@@ -69,6 +77,7 @@ function calculateWorkedHours(a: Attendance): string {
 }
 
 function AdminDashboard() {
+  const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [attendances, setAttendances] = useState<Attendance[]>([]);
   const [devices, setDevices] = useState<EmployeeDevice[]>([]);
@@ -253,6 +262,33 @@ function AdminDashboard() {
   const pendingDevices = devices.filter(d => !d.isApproved && d.isActive).length;
   const totalDevices = devices.filter(d => d.isActive).length;
 
+  const buildTodayExport = () => {
+    const todaySummary = computeReportSummary(filteredAttendances, stats?.totalEmployees || filteredAttendances.length);
+    return {
+      reportTitle: REPORT_TYPE_LABELS.daily,
+      dateRangeLabel: "Today",
+      generatedBy: user?.name || "Admin",
+      rows: filteredAttendances.map(attendanceToRow),
+      summary: todaySummary,
+    };
+  };
+
+  const handleDownloadToday = () => {
+    exportToPdf(buildTodayExport());
+  };
+
+  const handleQuickExportPdf = () => {
+    exportToPdf(buildTodayExport());
+  };
+
+  const handleQuickExportExcel = () => {
+    exportToExcel(buildTodayExport());
+  };
+
+  const handleQuickPrint = () => {
+    printReport(buildTodayExport());
+  };
+
   if (loading && attendances.length === 0) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -271,6 +307,20 @@ function AdminDashboard() {
       </div>
 
       {stats && <StatsCards stats={stats} />}
+
+      {/* Quick Report Actions */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Quick Report Actions</h3>
+        </div>
+        <ReportQuickActions
+          compact
+          onDownloadToday={handleDownloadToday}
+          onExportPdf={handleQuickExportPdf}
+          onExportExcel={handleQuickExportExcel}
+          onPrint={handleQuickPrint}
+        />
+      </div>
 
       {/* Device Summary Card */}
       <div className="grid gap-4 sm:grid-cols-4">
