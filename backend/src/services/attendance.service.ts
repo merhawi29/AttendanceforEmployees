@@ -192,7 +192,7 @@ const buildSchedule = (attendance: Attendance | null, now: Date = new Date()): A
     morningIn.message = `Check in now (${windows.labels.morningIn})`;
   } else {
     morningIn.enabled = false;
-    morningIn.message = `Morning attendance is closed. Lunch Break at ${formatTimeLabel(windows.raw.lunchOut.startHour, windows.raw.lunchOut.startMinute)}`;
+    morningIn.message = `Morning attendance is closed. Lunch Break starts at ${formatTimeLabel(windows.raw.lunchOut.startHour, windows.raw.lunchOut.startMinute)}`;
   }
 
   const lunchOut: AttendanceSchedule["steps"]["LUNCH_OUT"] = {
@@ -345,7 +345,7 @@ const validatePunch = (
       if (minutes > windows.morningInEnd) {
         throw new AppError(
           400,
-          `Morning attendance is closed. Lunch Break at ${formatTimeLabel(windows.raw.lunchOut.startHour, windows.raw.lunchOut.startMinute)}`,
+          `Morning attendance is closed. Lunch Break starts at ${formatTimeLabel(windows.raw.lunchOut.startHour, windows.raw.lunchOut.startMinute)}`,
           undefined,
           "OUTSIDE_TIME_WINDOW"
         );

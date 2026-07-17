@@ -119,7 +119,7 @@ export function calculateLocalSteps(
     steps.MORNING_IN.message = `Check in now (${formatToAmPm(settings.morningCheckInStart)} - ${formatToAmPm(settings.morningCheckInEnd)})`;
   } else {
     steps.MORNING_IN.enabled = false;
-    steps.MORNING_IN.message = `Morning attendance is closed. Lunch Break at ${formatToAmPm(settings.lunchStartTime)}`;
+    steps.MORNING_IN.message = `Morning attendance is closed. Lunch Break starts at ${formatToAmPm(settings.lunchStartTime)}`;
   }
 
   // Lunch Out (independent - no morning check-in required)
