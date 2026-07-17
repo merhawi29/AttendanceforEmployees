@@ -232,6 +232,7 @@ function PunchCard({
   setError,
   settings,
   currentMinutes,
+  onMorningWindowClosed,
 }: {
   punch: PunchType;
   attendance: Attendance | null;
@@ -242,6 +243,7 @@ function PunchCard({
   setError: (value: string | null) => void;
   settings: SystemSettings;
   currentMinutes: number;
+  onMorningWindowClosed?: () => void;
 }) {
   const config = STEP_CONFIG[punch];
   const step = schedule.steps[punch];
@@ -249,6 +251,10 @@ function PunchCard({
   const recordedAt = attendance?.[config.field] as string | null;
 
   const handleAction = async () => {
+    if (punch === "MORNING_IN" && !step.enabled) {
+      onMorningWindowClosed?.();
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -305,7 +311,7 @@ function PunchCard({
         <Button
           variant={punch === "MORNING_IN" ? "success" : "outline"}
           className="w-full font-medium"
-          disabled={!step.enabled || loading}
+          disabled={(punch !== "MORNING_IN" && !step.enabled) || loading}
           onClick={handleAction}
         >
           <Icon className="h-4 w-4" />
@@ -321,7 +327,6 @@ export function AttendancePanel({ attendance, schedule, onUpdate, settings: sett
   const [error, setError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [showClosedToast, setShowClosedToast] = useState(false);
-  const closedToastShownRef = useRef(false);
   const [settings, setSettings] = useState<SystemSettings>(settingsProp || DEFAULT_SETTINGS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
@@ -370,20 +375,10 @@ export function AttendancePanel({ attendance, schedule, onUpdate, settings: sett
   }, []);
 
   useEffect(() => {
-    if (!currentTime || closedToastShownRef.current) return;
-    const currentMins = currentTime.getHours() * 60 + currentTime.getMinutes();
-    const parseToMinutes = (timeStr: string) => {
-      const [h, m] = timeStr.split(":");
-      return parseInt(h, 10) * 60 + parseInt(m, 10);
-    };
-    const morningEnd = parseToMinutes(settings.morningCheckInEnd);
-    if (currentMins > morningEnd && !attendance?.morningIn) {
-      closedToastShownRef.current = true;
-      setShowClosedToast(true);
-      const timer = setTimeout(() => setShowClosedToast(false), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [currentTime, settings.morningCheckInEnd, attendance?.morningIn]);
+    if (!showClosedToast) return;
+    const timer = setTimeout(() => setShowClosedToast(false), 5000);
+    return () => clearTimeout(timer);
+  }, [showClosedToast]);
 
   const clockTime = currentTime
     ? currentTime.toLocaleTimeString("en-US", {
@@ -452,7 +447,7 @@ export function AttendancePanel({ attendance, schedule, onUpdate, settings: sett
           }}
         >
           <AlertCircle className="h-4 w-4 shrink-0" />
-          Morning attendance is closed. Lunch Break at {formatToAmPm(settings.lunchStartTime)}
+          Morning attendance is closed. Lunch Break starts at {formatToAmPm(settings.lunchStartTime)}
         </div>
       )}
 
@@ -469,6 +464,7 @@ export function AttendancePanel({ attendance, schedule, onUpdate, settings: sett
             setError={setError}
             settings={settings}
             currentMinutes={currentMinutes}
+            onMorningWindowClosed={() => setShowClosedToast(true)}
           />
         ))}
       </div>
