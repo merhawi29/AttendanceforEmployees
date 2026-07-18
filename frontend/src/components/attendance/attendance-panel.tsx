@@ -7,7 +7,7 @@ import { Attendance, AttendanceSchedule, PunchType, StepSchedule, AttendanceStat
 import { apiRequest, ApiError } from "@/lib/api";
 import { formatTime, getStatusColor, formatStatusLabel } from "@/lib/utils";
 import { formatToAmPm } from "@/lib/time-format";
-import { getDeviceId } from "@/lib/device";
+import { getDeviceId, getDeviceInfo } from "@/lib/device";
 import {
   LogIn,
   LogOut,
@@ -258,10 +258,14 @@ function PunchCard({
     setLoading(true);
     setError(null);
     try {
+      const devInfo = getDeviceInfo();
       await apiRequest("/attendance/check", {
         method: "POST",
         body: JSON.stringify({ punch }),
-        headers: { "x-device-id": getDeviceId() },
+        headers: {
+          "x-device-id": devInfo.deviceId,
+          "x-device-fingerprint": devInfo.fingerprint,
+        },
       });
       onUpdate();
     } catch (err) {

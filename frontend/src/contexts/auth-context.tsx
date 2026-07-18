@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback, ReactNode 
 import { useRouter } from "next/navigation";
 import { User } from "@/types";
 import { apiRequest, ApiError } from "@/lib/api";
+import { getDeviceInfo } from "@/lib/device";
 
 interface AuthContextType {
   user: User | null;
@@ -36,9 +37,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadUser]);
 
   const login = async (email: string, password: string) => {
+    const devInfo = getDeviceInfo();
     const result = await apiRequest<{ user: User }>("/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({
+        email,
+        password,
+        deviceId: devInfo.deviceId,
+        fingerprint: devInfo.fingerprint,
+      }),
     });
 
     setUser(result.user);

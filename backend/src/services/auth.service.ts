@@ -51,7 +51,7 @@ const issueTokens = async (user: { id: string; email: string; role: Role }) => {
 };
 
 export const authService = {
-  async login({ email, password }: LoginInput, meta?: { ip?: string; requestId?: string }) {
+  async login({ email, password, deviceId, fingerprint }: LoginInput & { deviceId?: string; fingerprint?: string }, meta?: { ip?: string; requestId?: string }) {
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
     });
@@ -70,6 +70,52 @@ export const authService = {
     if (!isValid) {
       logger.warn({ userId: user.id, ip: meta?.ip, requestId: meta?.requestId }, "failed login attempt");
       throw new AppError(401, "Invalid email or password", undefined, "INVALID_CREDENTIALS");
+    }
+
+    // Verify device registration for EMPLOYEES
+    if (user.role === "EMPLOYEE") {
+      const devices = await prisma.employeeDevice.findMany({
+        where: { employeeId: user.id, isActive: true },
+      });
+      const approvedDevice = devices.find((d) => d.isApproved);
+
+      if (approvedDevice) {
+        const storedFingerprint = approvedDevice.fingerprint;
+        const incomingFingerprint = fingerprint || null;
+        const approvalStatus = approvedDevice.isApproved;
+
+        if (approvedDevice.deviceId !== deviceId || storedFingerprint !== incomingFingerprint) {
+          const reason = approvedDevice.deviceId !== deviceId
+            ? "Device ID mismatch (different device)"
+            : "Device fingerprint mismatch";
+
+          logger.warn({
+            userId: user.id,
+            storedFingerprint,
+            incomingFingerprint,
+            approvalStatus,
+            reason,
+          }, "Device verification failed during login");
+
+          throw new AppError(403, `Attendance system access restricted: ${reason}.`, undefined, "DEVICE_NOT_APPROVED");
+        }
+
+        logger.info({
+          userId: user.id,
+          storedFingerprint,
+          incomingFingerprint,
+          approvalStatus,
+          reason: null,
+        }, "Device verification succeeded during login");
+      } else {
+        logger.info({
+          userId: user.id,
+          storedFingerprint: null,
+          incomingFingerprint: fingerprint || null,
+          approvalStatus: false,
+          reason: "No approved device exists for user yet",
+        }, "Login allowed without device verification (no approved device registered)");
+      }
     }
 
     const tokens = await issueTokens(user);

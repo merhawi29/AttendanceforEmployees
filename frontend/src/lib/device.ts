@@ -58,15 +58,43 @@ function getCanvasFingerprint(): string {
 }
 
 export function getDeviceId(): string {
-  let deviceId = localStorage.getItem(DEVICE_ID_KEY);
-  if (!deviceId) {
-    deviceId = generateUUID();
-    localStorage.setItem(DEVICE_ID_KEY, deviceId);
+  if (typeof window === "undefined") return "";
+  try {
+    let deviceId = localStorage.getItem(DEVICE_ID_KEY);
+    if (!deviceId) {
+      deviceId = generateUUID();
+      localStorage.setItem(DEVICE_ID_KEY, deviceId);
+    }
+    return deviceId;
+  } catch (e) {
+    return "";
   }
-  return deviceId;
 }
 
 export function getDeviceInfo() {
+  if (typeof window === "undefined") {
+    return {
+      deviceId: "",
+      deviceName: "Unknown - Unknown",
+      browser: "Unknown",
+      operatingSystem: "Unknown",
+      userAgent: "",
+      platform: "",
+      maxTouchPoints: 0,
+      screenWidth: 0,
+      screenHeight: 0,
+      fingerprint: "",
+    };
+  }
+
+  const DEVICE_FP_KEY = "attendance_device_fingerprint";
+  let cachedFp = "";
+  try {
+    cachedFp = localStorage.getItem(DEVICE_FP_KEY) || "";
+  } catch (e) {
+    // ignore
+  }
+
   const canvasFp = getCanvasFingerprint();
   const platform = navigator.platform || "";
   const maxTouchPoints = navigator.maxTouchPoints || 0;
@@ -108,6 +136,16 @@ export function getDeviceInfo() {
     canvasFp
   ].join("###");
 
+  let fingerprint = cachedFp;
+  if (!fingerprint) {
+    fingerprint = cyrb53(payload);
+    try {
+      localStorage.setItem(DEVICE_FP_KEY, fingerprint);
+    } catch (e) {
+      // ignore
+    }
+  }
+
   const deviceInfo = {
     deviceId: getDeviceId(),
     deviceName: `${getOS()} - ${getBrowser()}`,
@@ -118,7 +156,7 @@ export function getDeviceInfo() {
     maxTouchPoints,
     screenWidth,
     screenHeight,
-    fingerprint: cyrb53(payload),
+    fingerprint,
   };
 
   console.group("[DeviceInfo] Detected device information");
@@ -137,5 +175,12 @@ export function getDeviceInfo() {
 }
 
 export function resetDeviceId(): void {
-  localStorage.removeItem(DEVICE_ID_KEY);
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.removeItem(DEVICE_ID_KEY);
+      localStorage.removeItem("attendance_device_fingerprint");
+    } catch (e) {
+      // ignore
+    }
+  }
 }

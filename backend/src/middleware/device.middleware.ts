@@ -11,6 +11,7 @@ export const deviceRestriction = async (
 ) => {
   try {
     const deviceId = req.headers["x-device-id"] as string;
+    const fingerprint = req.headers["x-device-fingerprint"] as string;
 
     if (!deviceId) {
       return next(
@@ -43,6 +44,12 @@ export const deviceRestriction = async (
     if (device.employeeId !== req.user!.userId) {
       return next(
         new AppError(403, "Device is registered to another user.", undefined, "DEVICE_MISMATCH")
+      );
+    }
+
+    if (device.fingerprint && device.fingerprint !== fingerprint) {
+      return next(
+        new AppError(403, "Device fingerprint mismatch. Access denied.", undefined, "DEVICE_FORBIDDEN")
       );
     }
 
