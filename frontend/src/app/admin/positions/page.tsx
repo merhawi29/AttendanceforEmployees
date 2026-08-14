@@ -1,49 +1,42 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/api";
-import { Employee, EmployeeListResponse } from "@/types/employee";
+import { Position, PositionListResponse } from "@/types/position";
 import { DepartmentTreeItem } from "@/types/department";
-import { Position } from "@/types/position";
-import { EmployeeModal } from "@/components/admin/employee-modal";
-import { DeleteEmployeeModal } from "@/components/admin/delete-employee-modal";
+import { PositionModal } from "@/components/admin/position-modal";
+import { DeletePositionModal } from "@/components/admin/delete-position-modal";
 import { Toaster } from "@/components/ui/toast";
 import {
-  Users,
+  Briefcase,
   Plus,
   Search,
   Building2,
-  Briefcase,
+  Layers,
   Edit,
   Trash2,
   CheckCircle2,
   XCircle,
   RefreshCw,
   ArrowUpDown,
-  Mail,
-  Phone,
-  Calendar,
-  Eye,
+  DollarSign,
 } from "lucide-react";
 
-export default function UsersPage() {
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [departments, setDepartments] = useState<DepartmentTreeItem[]>([]);
+export default function PositionsPage() {
   const [positions, setPositions] = useState<Position[]>([]);
+  const [departments, setDepartments] = useState<DepartmentTreeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filters & Pagination State
+  // Pagination & Filter & Sorting State
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
-  const [positionFilter, setPositionFilter] = useState<string>("all");
-  const [roleFilter, setRoleFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<"name" | "email" | "employeeId" | "createdAt">("name");
+  const [jobLevelFilter, setJobLevelFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"title" | "code" | "jobLevel" | "createdAt" | "updatedAt">("title");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -51,23 +44,19 @@ export default function UsersPage() {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
-  const [deleteModalEmp, setDeleteModalEmp] = useState<Employee | null>(null);
+  const [selectedPos, setSelectedPos] = useState<Position | null>(null);
+  const [deleteModalPos, setDeleteModalPos] = useState<Position | null>(null);
 
-  const fetchOptions = async () => {
+  const fetchDepartments = async () => {
     try {
-      const [deptsRes, posRes] = await Promise.all([
-        apiRequest<DepartmentTreeItem[]>("/departments/tree").catch(() => []),
-        apiRequest<{ positions: Position[] }>("/positions?limit=100").catch(() => ({ positions: [] })),
-      ]);
+      const deptsRes = await apiRequest<DepartmentTreeItem[]>("/departments/tree").catch(() => []);
       setDepartments(deptsRes || []);
-      setPositions(posRes.positions || []);
     } catch {
       // Ignore
     }
   };
 
-  const fetchEmployees = useCallback(async () => {
+  const fetchPositions = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -82,47 +71,59 @@ export default function UsersPage() {
       if (statusFilter === "active") params.append("isActive", "true");
       if (statusFilter === "inactive") params.append("isActive", "false");
       if (departmentFilter !== "all") params.append("departmentId", departmentFilter);
-      if (positionFilter !== "all") params.append("positionId", positionFilter);
-      if (roleFilter !== "all") params.append("role", roleFilter);
+      if (jobLevelFilter !== "all") params.append("jobLevel", jobLevelFilter);
 
-      const response = await apiRequest<EmployeeListResponse>(
-        `/employees?${params.toString()}`
+      const response = await apiRequest<PositionListResponse>(
+        `/positions?${params.toString()}`
       );
 
-      setEmployees(response.employees || []);
+      setPositions(response.positions || []);
       setTotalPages(response.pagination?.totalPages || 1);
       setTotalItems(response.pagination?.total || 0);
     } catch (err: any) {
-      setError(err.message || "Failed to fetch employees");
+      setError(err.message || "Failed to fetch positions");
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusFilter, departmentFilter, positionFilter, roleFilter, sortBy, sortOrder]);
+  }, [page, search, statusFilter, departmentFilter, jobLevelFilter, sortBy, sortOrder]);
 
   useEffect(() => {
-    fetchOptions();
+    fetchDepartments();
   }, []);
 
   useEffect(() => {
-    fetchEmployees();
-  }, [fetchEmployees]);
+    fetchPositions();
+  }, [fetchPositions]);
 
   const handleCreate = () => {
-    setSelectedEmp(null);
+    setSelectedPos(null);
     setIsModalOpen(true);
   };
 
-  const handleEdit = (emp: Employee) => {
-    setSelectedEmp(emp);
+  const handleEdit = (pos: Position) => {
+    setSelectedPos(pos);
     setIsModalOpen(true);
   };
 
-  const handleDeletePrompt = (emp: Employee) => {
-    setDeleteModalEmp(emp);
+  const handleDeletePrompt = (pos: Position) => {
+    setDeleteModalPos(pos);
   };
 
   const toggleSortOrder = () => {
     setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+  };
+
+  const formatSalaryRange = (min?: number | null, max?: number | null) => {
+    if (min !== null && min !== undefined && max !== null && max !== undefined) {
+      return `$${min.toLocaleString()} - $${max.toLocaleString()}`;
+    }
+    if (min !== null && min !== undefined) {
+      return `From $${min.toLocaleString()}`;
+    }
+    if (max !== null && max !== undefined) {
+      return `Up to $${max.toLocaleString()}`;
+    }
+    return "-";
   };
 
   return (
@@ -133,26 +134,26 @@ export default function UsersPage() {
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Employee Directory</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Positions</h1>
             <p className="text-sm text-gray-500">
-              Manage organization staff, job assignments, department roles, and user access
+              Manage job titles, career levels, salary scales, and department assignments
             </p>
           </div>
           <Button onClick={handleCreate} className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
-            Onboard Employee
+            Add Position
           </Button>
         </div>
 
-        {/* Overview Stats */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+        {/* Stats Overview */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-blue-50 p-3 text-blue-600">
-                <Users className="h-6 w-6" />
+                <Briefcase className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs font-medium text-gray-500">Total Employees</p>
+                <p className="text-xs font-medium text-gray-500">Total Positions</p>
                 <p className="text-2xl font-bold text-gray-900">{totalItems}</p>
               </div>
             </div>
@@ -161,24 +162,10 @@ export default function UsersPage() {
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-green-50 p-3 text-green-600">
-                <CheckCircle2 className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-gray-500">Active Accounts</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {employees.filter((e) => e.isActive).length}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-purple-50 p-3 text-purple-600">
                 <Building2 className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs font-medium text-gray-500">Departments</p>
+                <p className="text-xs font-medium text-gray-500">Active Departments</p>
                 <p className="text-2xl font-bold text-gray-900">{departments.length}</p>
               </div>
             </div>
@@ -186,23 +173,25 @@ export default function UsersPage() {
 
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-orange-50 p-3 text-orange-600">
-                <Briefcase className="h-6 w-6" />
+              <div className="rounded-lg bg-purple-50 p-3 text-purple-600">
+                <Layers className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs font-medium text-gray-500">Positions</p>
-                <p className="text-2xl font-bold text-gray-900">{positions.length}</p>
+                <p className="text-xs font-medium text-gray-500">Career Levels</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {new Set(positions.map((p) => p.jobLevel).filter(Boolean)).size}
+                </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Filters & Search */}
+        {/* Filters, Search & Sorting */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search by name, email, employee ID, phone..."
+              placeholder="Search by code, title, or career level..."
               className="pl-9"
               value={search}
               onChange={(e) => {
@@ -230,37 +219,6 @@ export default function UsersPage() {
               ))}
             </select>
 
-            {/* Position Filter */}
-            <select
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              value={positionFilter}
-              onChange={(e) => {
-                setPositionFilter(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="all">All Positions</option>
-              {positions.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.title}
-                </option>
-              ))}
-            </select>
-
-            {/* Role Filter */}
-            <select
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              value={roleFilter}
-              onChange={(e) => {
-                setRoleFilter(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="all">All Roles</option>
-              <option value="EMPLOYEE">Employee</option>
-              <option value="ADMIN">Admin</option>
-            </select>
-
             {/* Status Filter */}
             <select
               className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
@@ -275,7 +233,7 @@ export default function UsersPage() {
               <option value="inactive">Inactive Only</option>
             </select>
 
-            {/* Sort Field */}
+            {/* Sort By Field */}
             <select
               className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               value={sortBy}
@@ -284,13 +242,13 @@ export default function UsersPage() {
                 setPage(1);
               }}
             >
-              <option value="name">Sort by Name</option>
-              <option value="employeeId">Sort by ID</option>
-              <option value="email">Sort by Email</option>
-              <option value="createdAt">Sort by Hire/Joined Date</option>
+              <option value="title">Sort by Title</option>
+              <option value="code">Sort by Code</option>
+              <option value="jobLevel">Sort by Level</option>
+              <option value="createdAt">Sort by Date Created</option>
             </select>
 
-            {/* Sort Direction Toggle */}
+            {/* Toggle Sort Direction */}
             <Button
               variant="outline"
               size="sm"
@@ -302,7 +260,7 @@ export default function UsersPage() {
               {sortOrder.toUpperCase()}
             </Button>
 
-            <Button variant="outline" size="icon" onClick={fetchEmployees} title="Refresh">
+            <Button variant="outline" size="icon" onClick={fetchPositions} title="Refresh">
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             </Button>
           </div>
@@ -312,15 +270,15 @@ export default function UsersPage() {
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
           {error ? (
             <div className="p-8 text-center text-red-500">{error}</div>
-          ) : loading && employees.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">Loading employees...</div>
-          ) : employees.length === 0 ? (
+          ) : loading && positions.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">Loading positions...</div>
+          ) : positions.length === 0 ? (
             <div className="p-12 text-center text-gray-500">
-              <Users className="mx-auto h-12 w-12 text-gray-300" />
-              <p className="mt-2 text-lg font-medium text-gray-900">No employees found</p>
-              <p className="text-sm">Get started by onboarding your first employee.</p>
+              <Briefcase className="mx-auto h-12 w-12 text-gray-300" />
+              <p className="mt-2 text-lg font-medium text-gray-900">No positions found</p>
+              <p className="text-sm">Get started by creating your first position.</p>
               <Button onClick={handleCreate} className="mt-4">
-                <Plus className="mr-2 h-4 w-4" /> Onboard Employee
+                <Plus className="mr-2 h-4 w-4" /> Add Position
               </Button>
             </div>
           ) : (
@@ -328,78 +286,63 @@ export default function UsersPage() {
               <table className="w-full text-left text-sm text-gray-600">
                 <thead className="bg-gray-50 text-xs uppercase text-gray-500 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-3 font-semibold">Employee</th>
-                    <th className="px-6 py-3 font-semibold">Department & Position</th>
-                    <th className="px-6 py-3 font-semibold">Contact Info</th>
-                    <th className="px-6 py-3 font-semibold">Role & Type</th>
+                    <th className="px-6 py-3 font-semibold">Code / Title</th>
+                    <th className="px-6 py-3 font-semibold">Department</th>
+                    <th className="px-6 py-3 font-semibold">Career Level</th>
+                    <th className="px-6 py-3 font-semibold">Salary Range</th>
                     <th className="px-6 py-3 font-semibold">Status</th>
                     <th className="px-6 py-3 text-right font-semibold">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {employees.map((emp) => (
-                    <tr key={emp.id} className="hover:bg-gray-50/80 transition-colors">
+                  {positions.map((pos) => (
+                    <tr key={pos.id} className="hover:bg-gray-50/80 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-700">
-                            {emp.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-900">{emp.name}</p>
-                            <p className="text-xs text-gray-500 font-mono">{emp.employeeId}</p>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <div className="space-y-1">
-                          <p className="flex items-center gap-1.5 text-xs font-medium text-gray-900">
-                            <Building2 className="h-3.5 w-3.5 text-blue-600" />
-                            {emp.departmentRef?.name || emp.department || "Unassigned"}
-                          </p>
-                          {emp.position && (
-                            <p className="flex items-center gap-1.5 text-xs text-gray-500">
-                              <Briefcase className="h-3.5 w-3.5 text-purple-600" />
-                              {emp.position.title} ({emp.position.jobLevel || "N/A"})
-                            </p>
-                          )}
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <div className="space-y-1 text-xs text-gray-600">
-                          <p className="flex items-center gap-1.5">
-                            <Mail className="h-3.5 w-3.5 text-gray-400" />
-                            {emp.email}
-                          </p>
-                          {emp.phone && (
-                            <p className="flex items-center gap-1.5">
-                              <Phone className="h-3.5 w-3.5 text-gray-400" />
-                              {emp.phone}
-                            </p>
-                          )}
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <div className="space-y-1">
-                          <span
-                            className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${
-                              emp.role === "ADMIN"
-                                ? "bg-purple-100 text-purple-800"
-                                : "bg-blue-100 text-blue-800"
-                            }`}
-                          >
-                            {emp.role}
+                          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-xs font-bold text-blue-700">
+                            {pos.code}
                           </span>
-                          <p className="text-xs text-gray-400">
-                            {emp.employmentType ? emp.employmentType.replace("_", " ") : "FULL TIME"}
-                          </p>
+                          <div>
+                            <p className="font-semibold text-gray-900">{pos.title}</p>
+                            {pos.description && (
+                              <p className="text-xs text-gray-400 line-clamp-1">
+                                {pos.description}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </td>
 
                       <td className="px-6 py-4">
-                        {emp.isActive ? (
+                        {pos.department ? (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                            <Building2 className="h-3 w-3 text-gray-500" />
+                            {pos.department.name}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">Unassigned</span>
+                        )}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {pos.jobLevel ? (
+                          <span className="inline-flex items-center rounded-full bg-purple-50 px-2.5 py-0.5 text-xs font-medium text-purple-700">
+                            {pos.jobLevel}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </td>
+
+                      <td className="px-6 py-4 text-xs font-mono">
+                        <span className="inline-flex items-center gap-1 text-gray-700">
+                          <DollarSign className="h-3.5 w-3.5 text-gray-400" />
+                          {formatSalaryRange(pos.minSalary, pos.maxSalary)}
+                        </span>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {pos.isActive ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">
                             <CheckCircle2 className="h-3 w-3" /> Active
                           </span>
@@ -411,22 +354,12 @@ export default function UsersPage() {
                       </td>
 
                       <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Link href={`/admin/users/${emp.id}`}>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-gray-500 hover:text-blue-600"
-                              title="View Details"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </Link>
+                        <div className="flex items-center justify-end gap-2">
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-gray-500 hover:text-blue-600"
-                            onClick={() => handleEdit(emp)}
+                            onClick={() => handleEdit(pos)}
                             title="Edit"
                           >
                             <Edit className="h-4 w-4" />
@@ -435,8 +368,8 @@ export default function UsersPage() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-gray-500 hover:text-red-600"
-                            onClick={() => handleDeletePrompt(emp)}
-                            title="Deactivate / Delete"
+                            onClick={() => handleDeletePrompt(pos)}
+                            title="Delete"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -477,20 +410,20 @@ export default function UsersPage() {
           )}
         </div>
 
-        {/* Create / Edit Employee Modal */}
-        <EmployeeModal
+        {/* Create / Edit Modal */}
+        <PositionModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          onSuccess={fetchEmployees}
-          employee={selectedEmp}
+          onSuccess={fetchPositions}
+          position={selectedPos}
         />
 
         {/* Delete Confirmation Modal */}
-        <DeleteEmployeeModal
-          isOpen={!!deleteModalEmp}
-          employee={deleteModalEmp}
-          onClose={() => setDeleteModalEmp(null)}
-          onSuccess={fetchEmployees}
+        <DeletePositionModal
+          isOpen={!!deleteModalPos}
+          position={deleteModalPos}
+          onClose={() => setDeleteModalPos(null)}
+          onSuccess={fetchPositions}
         />
       </div>
     </DashboardLayout>

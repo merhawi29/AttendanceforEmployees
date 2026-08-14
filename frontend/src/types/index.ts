@@ -14,11 +14,39 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  firstName?: string | null;
+  middleName?: string | null;
+  lastName?: string | null;
   employeeId: string;
+  gender?: "MALE" | "FEMALE" | "OTHER" | null;
+  dateOfBirth?: string | null;
+  address?: string | null;
+  avatarUrl?: string | null;
   department: string | null;
+  departmentId?: string | null;
+  positionId?: string | null;
+  managerId?: string | null;
+  phone?: string | null;
+  hireDate?: string | null;
+  employmentType?: string | null;
+  employmentStatus?: "ACTIVE" | "INACTIVE" | "ON_LEAVE" | "TERMINATED" | "PROBATION" | null;
+  salary?: number | null;
   role: Role;
   isActive: boolean;
   createdAt: string;
+  updatedAt?: string;
+  departmentRef?: { id: string; code: string; name: string } | null;
+  position?: { id: string; code: string; title: string; jobLevel?: string | null } | null;
+  manager?: { id: string; name: string; employeeId: string; email?: string } | null;
+  employeeDevices?: Array<{
+    id: string;
+    deviceId: string;
+    deviceName?: string | null;
+    browser?: string | null;
+    operatingSystem?: string | null;
+    isApproved: boolean;
+    lastUsedAt?: string | null;
+  }>;
 }
 
 export interface Attendance {

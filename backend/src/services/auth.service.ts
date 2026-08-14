@@ -216,12 +216,7 @@ export const authService = {
   },
 
   async getProfile(userId: string) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-    if (!user) {
-      throw new AppError(404, "User not found", undefined, "USER_NOT_FOUND");
-    }
-    return formatUserResponse(user);
+    const { employeeService } = await import("./employee.service");
+    return employeeService.getEmployeeById(userId);
   },
 };

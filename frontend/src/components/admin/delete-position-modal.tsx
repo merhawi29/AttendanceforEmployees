@@ -1,0 +1,99 @@
+"use client";
+
+import { useState } from "react";
+import { Position } from "@/types/position";
+import { apiRequest } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, X } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+
+interface DeletePositionModalProps {
+  isOpen: boolean;
+  position: Position | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+export function DeletePositionModal({
+  isOpen,
+  position,
+  onClose,
+  onSuccess,
+}: DeletePositionModalProps) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!isOpen || !position) return null;
+
+  const handleDelete = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      await apiRequest(`/positions/${position.id}`, { method: "DELETE" });
+      toast({
+        title: "Position deleted",
+        description: `Position "${position.title}" (${position.code}) was deleted successfully.`,
+        variant: "success",
+      });
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      setError(err.message || "Failed to delete position");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+          <div className="flex items-center gap-2 text-red-600">
+            <AlertTriangle className="h-5 w-5" />
+            <h2 className="text-lg font-bold">Delete Position</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        <div className="mt-4 space-y-3">
+          <p className="text-sm text-gray-600">
+            Are you sure you want to delete the position{" "}
+            <span className="font-semibold text-gray-900">
+              "{position.title}" ({position.code})
+            </span>
+            ?
+          </p>
+          <p className="text-xs text-gray-500">
+            This action cannot be undone.
+          </p>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4">
+          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            className="bg-red-600 hover:bg-red-700 text-white"
+            onClick={handleDelete}
+            disabled={loading}
+          >
+            {loading ? "Deleting..." : "Delete Position"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}

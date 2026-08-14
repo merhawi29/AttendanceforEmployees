@@ -8,23 +8,95 @@ datasource db {
 }
 
 model User {
-  id              String           @id @default(cuid())
-  email           String           @unique
-  password        String
-  name            String
-  employeeId      String           @unique @map("employee_id")
-  department      String?
-  role            Role             @default(EMPLOYEE)
-  isActive        Boolean          @default(true) @map("is_active")
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
-  resetExpire     DateTime?        @map("reset_expire")
-  resetToken      String?          @map("reset_token")
-  attendances     Attendance[]
-  employeeDevices EmployeeDevice[]
-  refreshTokens   RefreshToken[]
+  id               String           @id @default(cuid())
+  email            String           @unique
+  password         String
+  name             String
+  employeeId       String           @unique @map("employee_id")
+  firstName        String?          @map("first_name") @db.VarChar(50)
+  middleName       String?          @map("middle_name") @db.VarChar(50)
+  lastName         String?          @map("last_name") @db.VarChar(50)
+  gender           Gender?
+  dateOfBirth      DateTime?        @map("date_of_birth") @db.Date
+  address          String?          @db.Text
+  avatarUrl        String?          @map("avatar_url") @db.VarChar(255)
+  department       String?
+  departmentId     String?          @map("department_id")
+  positionId       String?          @map("position_id")
+  phone            String?          @db.VarChar(30)
+  hireDate         DateTime?        @map("hire_date")
+  employmentType   String?          @default("FULL_TIME") @map("employment_type") @db.VarChar(50)
+  employmentStatus EmploymentStatus @default(ACTIVE) @map("employment_status")
+  salary           Decimal?         @db.Decimal(12, 2)
+  managerId        String?          @map("manager_id")
+  role             Role             @default(EMPLOYEE)
+  isActive         Boolean          @default(true) @map("is_active")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  resetExpire      DateTime?        @map("reset_expire")
+  resetToken       String?          @map("reset_token")
+  departmentRef    Department?      @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: SetNull)
+  position         Position?        @relation("PositionEmployees", fields: [positionId], references: [id], onDelete: SetNull)
+  headedDepartment Department?      @relation("DepartmentHead")
+  manager          User?            @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
+  directReports    User[]           @relation("EmployeeManager")
+  attendances      Attendance[]
+  employeeDevices  EmployeeDevice[]
+  refreshTokens    RefreshToken[]
+  leaveBalances         LeaveBalance[]
+  leaveRequests         LeaveRequest[]   @relation("EmployeeLeaveRequests")
+  managedLeaveRequests  LeaveRequest[]   @relation("ManagerLeaveRequests")
+  approvedLeaveRequests LeaveRequest[]   @relation("AdminLeaveRequests")
+  overtimeRequests         OvertimeRequest[] @relation("EmployeeOvertimeRequests")
+  managedOvertimeRequests  OvertimeRequest[] @relation("ManagerOvertimeRequests")
+  approvedOvertimeRequests OvertimeRequest[] @relation("AdminOvertimeRequests")
 
+  @@index([departmentId])
+  @@index([positionId])
+  @@index([managerId])
   @@map("users")
+}
+
+model Department {
+  id                 String       @id @default(cuid())
+  code               String       @unique @db.VarChar(20)
+  name               String       @unique @db.VarChar(100)
+  description        String?      @db.Text
+  managerId          String?      @unique @map("manager_id")
+  parentDepartmentId String?      @map("parent_department_id")
+  costCenterCode     String?      @map("cost_center_code") @db.VarChar(50)
+  isActive           Boolean      @default(true) @map("is_active")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  head               User?        @relation("DepartmentHead", fields: [managerId], references: [id], onDelete: SetNull)
+  parentDepartment   Department?  @relation("DepartmentHierarchy", fields: [parentDepartmentId], references: [id], onDelete: SetNull)
+  subDepartments     Department[] @relation("DepartmentHierarchy")
+  members            User[]       @relation("DepartmentMembers")
+  positions          Position[]   @relation("DepartmentPositions")
+
+  @@index([parentDepartmentId])
+  @@map("departments")
+}
+
+model Position {
+  id           String     @id @default(cuid())
+  code         String     @unique @db.VarChar(20)
+  title        String     @db.VarChar(100)
+  description  String?    @db.Text
+  departmentId String     @map("department_id")
+  jobLevel     String?    @map("job_level") @db.VarChar(50)
+  minSalary    Decimal?   @map("min_salary") @db.Decimal(12, 2)
+  maxSalary    Decimal?   @map("max_salary") @db.Decimal(12, 2)
+  isActive     Boolean    @default(true) @map("is_active")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  department   Department @relation("DepartmentPositions", fields: [departmentId], references: [id], onDelete: Cascade)
+  employees    User[]     @relation("PositionEmployees")
+
+  @@index([departmentId])
+  @@map("positions")
 }
 
 model RefreshToken {
@@ -106,9 +178,99 @@ model SystemSetting {
   @@map("system_settings")
 }
 
+model LeaveType {
+  id                 String         @id @default(cuid())
+  code               String         @unique @db.VarChar(20)
+  name               String         @db.VarChar(100)
+  description        String?        @db.Text
+  defaultDaysPerYear Decimal        @default(0) @map("default_days_per_year") @db.Decimal(5, 2)
+  isPaid             Boolean        @default(true) @map("is_paid")
+  requiresApproval   Boolean        @default(true) @map("requires_approval")
+  isActive           Boolean        @default(true) @map("is_active")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+
+  balances           LeaveBalance[]
+  leaveRequests      LeaveRequest[]
+
+  @@map("leave_types")
+}
+
+model LeaveBalance {
+  id            String    @id @default(cuid())
+  userId        String    @map("user_id")
+  leaveTypeId   String    @map("leave_type_id")
+  year          Int
+  allocatedDays Decimal   @default(0) @map("allocated_days") @db.Decimal(5, 2)
+  usedDays      Decimal   @default(0) @map("used_days") @db.Decimal(5, 2)
+  pendingDays   Decimal   @default(0) @map("pending_days") @db.Decimal(5, 2)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leaveType     LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, leaveTypeId, year])
+  @@index([userId])
+  @@index([leaveTypeId])
+  @@map("leave_balances")
+}
+
+model LeaveRequest {
+  id             String             @id @default(cuid())
+  userId         String             @map("user_id")
+  leaveTypeId    String             @map("leave_type_id")
+  startDate      DateTime           @map("start_date") @db.Date
+  endDate        DateTime           @map("end_date") @db.Date
+  totalDays      Decimal            @map("total_days") @db.Decimal(5, 2)
+  reason         String             @db.Text
+  status         LeaveRequestStatus @default(PENDING)
+  managerId      String?            @map("manager_id")
+  managerComment String?            @map("manager_comment") @db.Text
+  approvedById   String?            @map("approved_by_id")
+  adminComment   String?            @map("admin_comment") @db.Text
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  user           User               @relation("EmployeeLeaveRequests", fields: [userId], references: [id], onDelete: Cascade)
+  leaveType      LeaveType          @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+  manager        User?              @relation("ManagerLeaveRequests", fields: [managerId], references: [id], onDelete: SetNull)
+  approvedBy     User?              @relation("AdminLeaveRequests", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([leaveTypeId])
+  @@index([managerId])
+  @@index([approvedById])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@map("leave_requests")
+}
+
 enum Role {
   ADMIN
   EMPLOYEE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  INACTIVE
+  ON_LEAVE
+  TERMINATED
+  PROBATION
+}
+
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED_BY_MANAGER
+  APPROVED
+  REJECTED
+  CANCELLED
 }
 
 enum AttendanceStatus {
@@ -117,4 +279,50 @@ enum AttendanceStatus {
   ABSENT
   HALF_DAY
   LUNCH_MISSING
+  ON_LEAVE
+}
+
+enum OvertimeStatus {
+  PENDING
+  APPROVED_BY_MANAGER
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum OvertimeCategory {
+  NORMAL_DAY
+  WEEKEND
+  PUBLIC_HOLIDAY
+  NIGHT_SHIFT
+}
+
+model OvertimeRequest {
+  id             String           @id @default(cuid())
+  userId         String           @map("user_id")
+  date           DateTime         @db.Date
+  startTime      String           @map("start_time") @db.VarChar(10)
+  endTime        String           @map("end_time") @db.VarChar(10)
+  totalHours     Decimal          @map("total_hours") @db.Decimal(5, 2)
+  category       OvertimeCategory @default(NORMAL_DAY)
+  multiplierRate Decimal          @default(1.50) @map("multiplier_rate") @db.Decimal(3, 2)
+  reason         String           @db.Text
+  status         OvertimeStatus   @default(PENDING)
+  managerId      String?          @map("manager_id")
+  managerComment String?          @map("manager_comment") @db.Text
+  approvedById   String?          @map("approved_by_id")
+  adminComment   String?          @map("admin_comment") @db.Text
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  user           User             @relation("EmployeeOvertimeRequests", fields: [userId], references: [id], onDelete: Cascade)
+  manager        User?            @relation("ManagerOvertimeRequests", fields: [managerId], references: [id], onDelete: SetNull)
+  approvedBy     User?            @relation("AdminOvertimeRequests", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([managerId])
+  @@index([approvedById])
+  @@index([status])
+  @@index([date])
+  @@map("overtime_requests")
 }

@@ -13,45 +13,54 @@ async function main() {
     12
   );
 
-  await prisma.user.upsert({
-    where: { email: "admin@company.com" },
-    update: {},
-    create: {
-      email: "admin@company.com",
-      password: adminPassword,
-      name: "System Admin",
-      employeeId: "EMP001",
-      department: "Administration",
-      role: "ADMIN",
-    },
+  const adminUser = await prisma.user.findFirst({
+    where: { OR: [{ email: "admin@company.com" }, { employeeId: "EMP001" }] },
   });
+  if (!adminUser) {
+    await prisma.user.create({
+      data: {
+        email: "admin@company.com",
+        password: adminPassword,
+        name: "System Admin",
+        employeeId: "EMP001",
+        department: "Administration",
+        role: "ADMIN",
+      },
+    });
+  }
   console.log("Admin user created/verified (admin@company.com)");
 
-  await prisma.user.upsert({
-    where: { email: "john.doe@company.com" },
-    update: {},
-    create: {
-      email: "john.doe@company.com",
-      password: employeePassword,
-      name: "John Doe",
-      employeeId: "EMP002",
-      department: "Engineering",
-      role: "EMPLOYEE",
-    },
+  const emp1 = await prisma.user.findFirst({
+    where: { OR: [{ email: "john.doe@company.com" }, { employeeId: "EMP002" }] },
   });
+  if (!emp1) {
+    await prisma.user.create({
+      data: {
+        email: "john.doe@company.com",
+        password: employeePassword,
+        name: "John Doe",
+        employeeId: "EMP002",
+        department: "Engineering",
+        role: "EMPLOYEE",
+      },
+    });
+  }
 
-  await prisma.user.upsert({
-    where: { email: "jane.smith@company.com" },
-    update: {},
-    create: {
-      email: "jane.smith@company.com",
-      password: employeePassword,
-      name: "Jane Smith",
-      employeeId: "EMP003",
-      department: "Marketing",
-      role: "EMPLOYEE",
-    },
+  const emp2 = await prisma.user.findFirst({
+    where: { OR: [{ email: "jane.smith@company.com" }, { employeeId: "EMP003" }] },
   });
+  if (!emp2) {
+    await prisma.user.create({
+      data: {
+        email: "jane.smith@company.com",
+        password: employeePassword,
+        name: "Jane Smith",
+        employeeId: "EMP003",
+        department: "Marketing",
+        role: "EMPLOYEE",
+      },
+    });
+  }
   console.log("Employee users created/verified");
 
   const ips = process.env.SEED_ALLOWED_IPS
@@ -66,6 +75,24 @@ async function main() {
     });
   }
   console.log(`Allowed IPs whitelisted: ${ips.join(", ")}`);
+
+  // Seed default Leave Types
+  const leaveTypes = [
+    { code: "ANNUAL", name: "Annual Leave", description: "Paid annual vacation leave", defaultDaysPerYear: 20, isPaid: true, requiresApproval: true },
+    { code: "SICK", name: "Sick Leave", description: "Paid medical and health leave", defaultDaysPerYear: 15, isPaid: true, requiresApproval: true },
+    { code: "UNPAID", name: "Unpaid Leave", description: "Authorized unpaid absence", defaultDaysPerYear: 30, isPaid: false, requiresApproval: true },
+    { code: "MATERNITY", name: "Maternity Leave", description: "Maternity leave for mothers", defaultDaysPerYear: 120, isPaid: true, requiresApproval: true },
+    { code: "PATERNITY", name: "Paternity Leave", description: "Paternity leave for fathers", defaultDaysPerYear: 10, isPaid: true, requiresApproval: true },
+  ];
+
+  for (const lt of leaveTypes) {
+    await prisma.leaveType.upsert({
+      where: { code: lt.code },
+      update: {},
+      create: lt,
+    });
+  }
+  console.log("Default Leave Types seeded");
 
   console.log("Seed completed successfully");
 }

@@ -12,14 +12,20 @@ import {
   Clock,
   LogOut,
   Building2,
+  Briefcase,
   User,
   Settings,
   Smartphone,
   FileText,
+  Calendar,
 } from "lucide-react";
 
 const adminLinks = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/departments", label: "Departments", icon: Building2 },
+  { href: "/admin/positions", label: "Positions", icon: Briefcase },
+  { href: "/admin/leave", label: "Leave Management", icon: Calendar },
+  { href: "/admin/overtime", label: "Overtime Management", icon: Clock },
   { href: "/admin/attendance", label: "Attendance", icon: Clock },
   { href: "/admin/reports", label: "Reports", icon: FileText },
   { href: "/admin/users", label: "Employees", icon: Users },
@@ -30,6 +36,8 @@ const adminLinks = [
 
 const employeeLinks = [
   { href: "/employee", label: "My Attendance", icon: Clock },
+  { href: "/employee/leave", label: "My Leave", icon: Calendar },
+  { href: "/employee/overtime", label: "My Overtime", icon: Clock },
   { href: "/employee/devices", label: "My Devices", icon: Smartphone },
   { href: "/employee/profile", label: "Profile", icon: User },
 ];

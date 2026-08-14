@@ -16,6 +16,11 @@ import attendanceRoutes from "./routes/attendance.routes";
 import adminRoutes from "./routes/admin.routes";
 import deviceRoutes from "./routes/device.routes";
 import userRoutes from "./routes/user.routes";
+import departmentRoutes from "./routes/department.routes";
+import positionRoutes from "./routes/position.routes";
+import employeeRoutes from "./routes/employee.routes";
+import leaveRoutes from "./routes/leave.routes";
+import overtimeRoutes from "./routes/overtime.routes";
 
 const app = express();
 
@@ -47,6 +52,11 @@ app.use("/api/attendance", attendanceRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/devices", deviceRoutes);
+app.use("/api/departments", departmentRoutes);
+app.use("/api/positions", positionRoutes);
+app.use("/api/employees", employeeRoutes);
+app.use("/api/leave", leaveRoutes);
+app.use("/api/overtime", overtimeRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
