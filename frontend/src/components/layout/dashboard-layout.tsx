@@ -18,6 +18,7 @@ import {
   Smartphone,
   FileText,
   Calendar,
+  CreditCard,
 } from "lucide-react";
 
 const adminLinks = [
@@ -26,6 +27,7 @@ const adminLinks = [
   { href: "/admin/positions", label: "Positions", icon: Briefcase },
   { href: "/admin/leave", label: "Leave Management", icon: Calendar },
   { href: "/admin/overtime", label: "Overtime Management", icon: Clock },
+  { href: "/admin/payroll", label: "Payroll Management", icon: CreditCard },
   { href: "/admin/attendance", label: "Attendance", icon: Clock },
   { href: "/admin/reports", label: "Reports", icon: FileText },
   { href: "/admin/users", label: "Employees", icon: Users },
@@ -38,6 +40,7 @@ const employeeLinks = [
   { href: "/employee", label: "My Attendance", icon: Clock },
   { href: "/employee/leave", label: "My Leave", icon: Calendar },
   { href: "/employee/overtime", label: "My Overtime", icon: Clock },
+  { href: "/employee/payroll", label: "My Payslips", icon: CreditCard },
   { href: "/employee/devices", label: "My Devices", icon: Smartphone },
   { href: "/employee/profile", label: "Profile", icon: User },
 ];

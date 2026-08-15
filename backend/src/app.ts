@@ -21,6 +21,8 @@ import positionRoutes from "./routes/position.routes";
 import employeeRoutes from "./routes/employee.routes";
 import leaveRoutes from "./routes/leave.routes";
 import overtimeRoutes from "./routes/overtime.routes";
+import payrollRoutes from "./routes/payroll.routes";
+import reportRoutes from "./routes/report.routes";
 
 const app = express();
 
@@ -57,6 +59,8 @@ app.use("/api/positions", positionRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/leave", leaveRoutes);
 app.use("/api/overtime", overtimeRoutes);
+app.use("/api/payroll", payrollRoutes);
+app.use("/api/reports", reportRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
