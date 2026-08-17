@@ -23,6 +23,13 @@ import leaveRoutes from "./routes/leave.routes";
 import overtimeRoutes from "./routes/overtime.routes";
 import payrollRoutes from "./routes/payroll.routes";
 import reportRoutes from "./routes/report.routes";
+import holidayRoutes from "./routes/holiday.routes";
+import performanceRoutes from "./routes/performance.routes";
+import atsRoutes from "./routes/ats.routes";
+import assetRoutes from "./routes/asset.routes";
+import trainingRoutes from "./routes/training.routes";
+import documentRoutes from "./routes/document.routes";
+import notificationRoutes from "./routes/notification.routes";
 
 const app = express();
 
@@ -61,6 +68,13 @@ app.use("/api/leave", leaveRoutes);
 app.use("/api/overtime", overtimeRoutes);
 app.use("/api/payroll", payrollRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/holidays", holidayRoutes);
+app.use("/api/performance", performanceRoutes);
+app.use("/api/ats", atsRoutes);
+app.use("/api/assets", assetRoutes);
+app.use("/api/training", trainingRoutes);
+app.use("/api/documents", documentRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

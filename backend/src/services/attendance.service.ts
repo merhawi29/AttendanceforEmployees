@@ -14,6 +14,8 @@ import {
 } from "../utils/ethiopian-time";
 import { AppError } from "../utils/response";
 import { logger } from "../utils/logger";
+import { HolidayService } from "./holiday.service";
+
 
 interface AttendanceActionInput {
   userId: string;
@@ -94,7 +96,7 @@ const getWindowConfig = () => {
   };
 };
 
-const formatAttendance = (attendance: AttendanceRecord) => {
+const formatAttendance = (attendance: AttendanceRecord, isHoliday = false) => {
   const hasAnyPunch = !!(
     attendance.morningIn ||
     attendance.lunchOut ||
@@ -125,22 +127,26 @@ const formatAttendance = (attendance: AttendanceRecord) => {
       computedStatus = targetStatus;
     }
   } else {
-    const today = getTodayDate();
-    const recordDate = new Date(attendance.date);
-    const recordDateStr = recordDate.toISOString().split("T")[0];
-    const todayDateStr = today.toISOString().split("T")[0];
+    if (isHoliday || attendance.status === "HOLIDAY") {
+      computedStatus = "HOLIDAY";
+    } else {
+      const today = getTodayDate();
+      const recordDate = new Date(attendance.date);
+      const recordDateStr = recordDate.toISOString().split("T")[0];
+      const todayDateStr = today.toISOString().split("T")[0];
 
-    if (recordDateStr === todayDateStr) {
-      const now = new Date();
-      const minutes = getMinutesSinceMidnightEat(now);
-      const windows = getWindowConfig();
-      if (minutes >= windows.finalOutStart) {
+      if (recordDateStr === todayDateStr) {
+        const now = new Date();
+        const minutes = getMinutesSinceMidnightEat(now);
+        const windows = getWindowConfig();
+        if (minutes >= windows.finalOutStart) {
+          computedStatus = "ABSENT";
+        } else {
+          computedStatus = "PENDING";
+        }
+      } else if (recordDate < today) {
         computedStatus = "ABSENT";
-      } else {
-        computedStatus = "PENDING";
       }
-    } else if (recordDate < today) {
-      computedStatus = "ABSENT";
     }
   }
 
@@ -484,6 +490,7 @@ export const attendanceService = {
     const now = new Date();
     const today = getTodayDate();
     const settings = await settingsService.getSettings();
+    const todayHoliday = await HolidayService.isHolidayDate(today);
 
     let attendance = await prisma.attendance.findUnique({
       where: { userId_date: { userId, date: today } },
@@ -494,7 +501,7 @@ export const attendanceService = {
     const isAfterWork = minutes >= windows.finalOutStart;
 
     if (!attendance) {
-      if (isAfterWork) {
+      if (isAfterWork || todayHoliday) {
         const virtualAttendance: Attendance = {
           id: `virtual-${userId}-${today.getTime()}`,
           userId,
@@ -504,21 +511,23 @@ export const attendanceService = {
           lunchOut: null,
           lunchReturn: null,
           finalOut: null,
-          status: "ABSENT",
+          status: todayHoliday ? "HOLIDAY" : "ABSENT",
           ipAddress: null,
           createdAt: now,
           updatedAt: now,
         };
         return {
-          attendance: formatAttendance(virtualAttendance),
+          attendance: formatAttendance(virtualAttendance, !!todayHoliday),
           schedule: buildSchedule(virtualAttendance, now),
           settings,
+          holiday: todayHoliday ? { name: todayHoliday.name, type: todayHoliday.holidayType } : null,
         };
       } else {
         return {
           attendance: null,
           schedule: buildSchedule(null, now),
           settings,
+          holiday: null,
         };
       }
     } else {
@@ -531,23 +540,25 @@ export const attendanceService = {
         attendance.finalOut
       );
 
-      if (!hasAnyPunch && isAfterWork) {
+      if (!hasAnyPunch && (isAfterWork || todayHoliday)) {
         const attendanceWithComputedStatus = {
           ...attendance,
-          status: "ABSENT" as const,
+          status: (todayHoliday ? "HOLIDAY" : "ABSENT") as AttendanceStatus,
         };
         return {
-          attendance: formatAttendance(attendanceWithComputedStatus),
+          attendance: formatAttendance(attendanceWithComputedStatus, !!todayHoliday),
           schedule: buildSchedule(attendanceWithComputedStatus, now),
           settings,
+          holiday: todayHoliday ? { name: todayHoliday.name, type: todayHoliday.holidayType } : null,
         };
       }
     }
 
     return {
-      attendance: attendance ? formatAttendance(attendance) : null,
+      attendance: attendance ? formatAttendance(attendance, !!todayHoliday) : null,
       schedule: buildSchedule(attendance, now),
       settings,
+      holiday: todayHoliday ? { name: todayHoliday.name, type: todayHoliday.holidayType } : null,
     };
   },
 
@@ -566,7 +577,12 @@ export const attendanceService = {
       take: 30,
     });
 
-    return records.map(formatAttendance);
+    return Promise.all(
+      records.map(async (r) => {
+        const isH = await HolidayService.isHolidayDate(r.date);
+        return formatAttendance(r, !!isH);
+      })
+    );
   },
 
   async getAllAttendances(filters: {
@@ -598,11 +614,18 @@ export const attendanceService = {
       orderBy: { date: "desc" },
     });
 
-    return records.map(formatAttendance);
+    return Promise.all(
+      records.map(async (r) => {
+        const isH = await HolidayService.isHolidayDate(r.date);
+        return formatAttendance(r, !!isH);
+      })
+    );
   },
 
   async getDashboardStats() {
     const today = getTodayDate();
+    const todayHoliday = await HolidayService.isHolidayDate(today);
+
     const totalEmployees = await prisma.user.count({
       where: { role: "EMPLOYEE", isActive: true },
     });
@@ -633,7 +656,7 @@ export const attendanceService = {
     const now = new Date();
     const minutes = getMinutesSinceMidnightEat(now);
     const isAfterWork = minutes >= windows.finalOutStart;
-    const absentToday = isAfterWork ? (totalEmployees - presentToday) : 0;
+    const absentToday = isAfterWork && !todayHoliday ? (totalEmployees - presentToday) : 0;
 
     const formattedDate = today.toISOString().split("T")[0];
 
@@ -643,6 +666,8 @@ export const attendanceService = {
       absentToday,
       lateToday,
       lunchMissingToday,
+      isHoliday: !!todayHoliday,
+      holidayName: todayHoliday ? todayHoliday.name : null,
       date: formattedDate,
       ethiopianDate: formattedDate,
       ethiopianDateLabel: formattedDate,

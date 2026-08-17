@@ -52,6 +52,16 @@ model User {
   approvedOvertimeRequests OvertimeRequest[] @relation("AdminOvertimeRequests")
   salaryStructure          SalaryStructure?
   payrollRecords           PayrollRecord[]
+  performanceReviews       PerformanceReview[] @relation("EmployeePerformanceReviews")
+  givenPerformanceReviews  PerformanceReview[] @relation("ReviewerPerformanceReviews")
+  performanceGoals         PerformanceGoal[]   @relation("EmployeePerformanceGoals")
+  conductedInterviews      Interview[]         @relation("InterviewerConducted")
+  assignedAssets           Asset[]             @relation("UserAssignedAssets")
+  assetAssignments         AssetAssignment[]   @relation("EmployeeAssetAssignments")
+  conductedAssetAssignments AssetAssignment[]  @relation("AssignerAssetAssignments")
+  trainingEnrollments      TrainingEnrollment[] @relation("EmployeeTrainingEnrollments")
+  documents                Document[]           @relation("UserDocuments")
+  notifications            Notification[]       @relation("UserNotifications")
 
   @@index([departmentId])
   @@index([positionId])
@@ -75,6 +85,7 @@ model Department {
   parentDepartment   Department?  @relation("DepartmentHierarchy", fields: [parentDepartmentId], references: [id], onDelete: SetNull)
   subDepartments     Department[] @relation("DepartmentHierarchy")
   members            User[]       @relation("DepartmentMembers")
+  documents          Document[]   @relation("DepartmentDocuments")
   positions          Position[]   @relation("DepartmentPositions")
 
   @@index([parentDepartmentId])
@@ -282,6 +293,7 @@ enum AttendanceStatus {
   HALF_DAY
   LUNCH_MISSING
   ON_LEAVE
+  HOLIDAY
 }
 
 enum OvertimeStatus {
@@ -382,3 +394,426 @@ model PayrollRecord {
   @@index([status])
   @@map("payroll_records")
 }
+
+enum HolidayType {
+  PUBLIC
+  COMPANY
+  REGIONAL
+}
+
+model Holiday {
+  id          String      @id @default(cuid())
+  name        String      @db.VarChar(150)
+  description String?     @db.Text
+  holidayDate DateTime    @map("holiday_date") @db.Date
+  holidayType HolidayType @default(PUBLIC) @map("holiday_type")
+  isRecurring Boolean     @default(false) @map("is_recurring")
+  isActive    Boolean     @default(true) @map("is_active")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  @@index([holidayDate])
+  @@index([holidayType])
+  @@map("holidays")
+}
+
+enum PerformanceRating {
+  OUTSTANDING
+  VERY_GOOD
+  GOOD
+  FAIR
+  POOR
+}
+
+enum GoalStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model PerformanceReview {
+  id             String            @id @default(cuid())
+  employeeId     String            @map("employee_id")
+  reviewerId     String            @map("reviewer_id")
+  reviewDate     DateTime          @map("review_date") @db.Date
+  overallScore   Float             @map("overall_score")
+  rating         PerformanceRating
+  strengths      String?           @db.Text
+  weaknesses     String?           @db.Text
+  comments       String?           @db.Text
+  recommendation String?           @db.VarChar(255)
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  employee User @relation("EmployeePerformanceReviews", fields: [employeeId], references: [id], onDelete: Cascade)
+  reviewer User @relation("ReviewerPerformanceReviews", fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([reviewerId])
+  @@index([rating])
+  @@index([reviewDate])
+  @@map("performance_reviews")
+}
+
+model PerformanceGoal {
+  id                 String     @id @default(cuid())
+  employeeId         String     @map("employee_id")
+  title              String     @db.VarChar(255)
+  description        String?    @db.Text
+  targetDate         DateTime   @map("target_date") @db.Date
+  progressPercentage Int        @default(0) @map("progress_percentage")
+  status             GoalStatus @default(NOT_STARTED)
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+
+  employee User @relation("EmployeePerformanceGoals", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([targetDate])
+  @@map("performance_goals")
+}
+
+enum JobStatus {
+  DRAFT
+  OPEN
+  ON_HOLD
+  CLOSED
+}
+
+enum ApplicationStatus {
+  APPLIED
+  SCREENED
+  INTERVIEW_SCHEDULED
+  OFFER_EXTENDED
+  HIRED
+  REJECTED
+}
+
+enum InterviewType {
+  PHONE_SCREEN
+  TECHNICAL
+  HR
+  MANAGER
+  FINAL
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+model JobPosting {
+  id             String      @id @default(cuid())
+  code           String      @unique @db.VarChar(50)
+  title          String      @db.VarChar(255)
+  department     String?     @db.VarChar(100)
+  location       String?     @db.VarChar(100)
+  employmentType String      @default("FULL_TIME") @map("employment_type") @db.VarChar(50)
+  description    String      @db.Text
+  requirements   String?     @db.Text
+  minSalary      Decimal?    @map("min_salary") @db.Decimal(12, 2)
+  maxSalary      Decimal?    @map("max_salary") @db.Decimal(12, 2)
+  status         JobStatus   @default(DRAFT)
+  closingDate    DateTime?   @map("closing_date") @db.Date
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  applications JobApplication[]
+
+  @@index([status])
+  @@index([department])
+  @@map("job_postings")
+}
+
+model JobApplication {
+  id              String            @id @default(cuid())
+  jobPostingId    String            @map("job_posting_id")
+  applicantName   String            @map("applicant_name") @db.VarChar(150)
+  email           String            @db.VarChar(150)
+  phone           String?           @db.VarChar(30)
+  resumeUrl       String?           @map("resume_url") @db.VarChar(255)
+  coverLetter     String?           @map("cover_letter") @db.Text
+  experienceYears Float?            @map("experience_years")
+  currentCompany  String?           @map("current_company") @db.VarChar(150)
+  status          ApplicationStatus @default(APPLIED)
+  rating          Int?              @default(0)
+  notes           String?           @db.Text
+  appliedDate     DateTime          @default(now()) @map("applied_date")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  jobPosting JobPosting  @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  interviews Interview[]
+
+  @@index([jobPostingId])
+  @@index([status])
+  @@index([email])
+  @@map("job_applications")
+}
+
+model Interview {
+  id               String          @id @default(cuid())
+  jobApplicationId String          @map("job_application_id")
+  interviewerId    String          @map("interviewer_id")
+  interviewType    InterviewType   @default(TECHNICAL) @map("interview_type")
+  scheduledAt      DateTime        @map("scheduled_at")
+  location         String?         @db.VarChar(255)
+  status           InterviewStatus @default(SCHEDULED)
+  feedback         String?         @db.Text
+  score            Float?
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  jobApplication JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade)
+  interviewer    User           @relation("InterviewerConducted", fields: [interviewerId], references: [id], onDelete: Cascade)
+
+  @@index([jobApplicationId])
+  @@index([interviewerId])
+  @@index([status])
+  @@map("interviews")
+}
+
+enum AssetStatus {
+  AVAILABLE
+  ASSIGNED
+  UNDER_MAINTENANCE
+  DISPOSED
+  LOST
+}
+
+enum AssetCondition {
+  NEW
+  EXCELLENT
+  GOOD
+  FAIR
+  DAMAGED
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  RETURNED
+}
+
+model AssetCategory {
+  id          String   @id @default(cuid())
+  code        String   @unique @db.VarChar(50)
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  assets Asset[]
+
+  @@map("asset_categories")
+}
+
+model Asset {
+  id             String         @id @default(cuid())
+  assetTag       String         @unique @map("asset_tag") @db.VarChar(50)
+  name           String         @db.VarChar(150)
+  categoryId     String         @map("category_id")
+  brand          String?        @db.VarChar(100)
+  model          String?        @db.VarChar(100)
+  serialNumber   String?        @unique @map("serial_number") @db.VarChar(100)
+  purchaseDate   DateTime?      @map("purchase_date") @db.Date
+  purchaseCost   Decimal?       @map("purchase_cost") @db.Decimal(12, 2)
+  warrantyExpiry DateTime?      @map("warranty_expiry") @db.Date
+  status         AssetStatus    @default(AVAILABLE)
+  condition      AssetCondition @default(EXCELLENT)
+  assignedToId   String?        @map("assigned_to_id")
+  assignedDate   DateTime?      @map("assigned_date") @db.Date
+  notes          String?        @db.Text
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  category    AssetCategory     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  assignedTo  User?             @relation("UserAssignedAssets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignments AssetAssignment[]
+
+  @@index([categoryId])
+  @@index([assignedToId])
+  @@index([status])
+  @@map("assets")
+}
+
+model AssetAssignment {
+  id                String           @id @default(cuid())
+  assetId           String           @map("asset_id")
+  employeeId        String           @map("employee_id")
+  assignedById      String           @map("assigned_by_id")
+  assignedDate      DateTime         @default(now()) @map("assigned_date")
+  returnedDate      DateTime?        @map("returned_date")
+  conditionOnAssign AssetCondition   @default(EXCELLENT) @map("condition_on_assign")
+  conditionOnReturn AssetCondition?  @map("condition_on_return")
+  status            AssignmentStatus @default(ACTIVE)
+  notes             String?          @db.Text
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  asset    Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  employee User  @relation("EmployeeAssetAssignments", fields: [employeeId], references: [id], onDelete: Cascade)
+  assigner User  @relation("AssignerAssetAssignments", fields: [assignedById], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@index([employeeId])
+  @@index([status])
+  @@map("asset_assignments")
+}
+
+enum TrainingStatus {
+  UPCOMING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum EnrollmentStatus {
+  ENROLLED
+  IN_PROGRESS
+  COMPLETED
+  DROPPED
+  FAILED
+}
+
+model TrainingProgram {
+  id          String         @id @default(cuid())
+  code        String         @unique @db.VarChar(50)
+  title       String         @db.VarChar(150)
+  description String         @db.Text
+  category    String?        @db.VarChar(100)
+  trainerName String?        @map("trainer_name") @db.VarChar(100)
+  location    String?        @db.VarChar(255)
+  startDate   DateTime       @map("start_date") @db.Date
+  endDate     DateTime       @map("end_date") @db.Date
+  capacity    Int            @default(20)
+  status      TrainingStatus @default(UPCOMING)
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  enrollments TrainingEnrollment[]
+
+  @@index([status])
+  @@index([category])
+  @@map("training_programs")
+}
+
+model TrainingEnrollment {
+  id                String           @id @default(cuid())
+  trainingProgramId String           @map("training_program_id")
+  employeeId        String           @map("employee_id")
+  enrolledDate      DateTime         @default(now()) @map("enrolled_date")
+  status            EnrollmentStatus @default(ENROLLED)
+  score             Float?
+  certificateUrl    String?          @map("certificate_url")
+  certificateNo     String?          @map("certificate_no") @db.VarChar(100)
+  issueDate         DateTime?        @map("issue_date") @db.Date
+  feedback          String?          @db.Text
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  trainingProgram TrainingProgram @relation(fields: [trainingProgramId], references: [id], onDelete: Cascade)
+  employee        User            @relation("EmployeeTrainingEnrollments", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([trainingProgramId])
+  @@index([employeeId])
+  @@index([status])
+  @@map("training_enrollments")
+}
+
+enum DocumentType {
+  PERSONAL
+  COMPANY_POLICY
+}
+
+enum DocumentStatus {
+  ACTIVE
+  EXPIRING_SOON
+  EXPIRED
+  ARCHIVED
+}
+
+model DocumentCategory {
+  id          String   @id @default(cuid())
+  code        String   @unique @db.VarChar(50)
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  documents Document[]
+
+  @@map("document_categories")
+}
+
+model Document {
+  id           String         @id @default(cuid())
+  documentNo   String         @unique @map("document_no") @db.VarChar(50)
+  title        String         @db.VarChar(150)
+  categoryId   String         @map("category_id")
+  type         DocumentType   @default(PERSONAL)
+  fileUrl      String         @map("file_url") @db.Text
+  fileType     String?        @map("file_type") @db.VarChar(50)
+  fileSize     Int?           @map("file_size")
+  ownerId      String?        @map("owner_id")
+  departmentId String?        @map("department_id")
+  issueDate    DateTime?      @map("issue_date") @db.Date
+  expiryDate   DateTime?      @map("expiry_date") @db.Date
+  status       DocumentStatus @default(ACTIVE)
+  notes        String?        @db.Text
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  category   DocumentCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  owner      User?            @relation("UserDocuments", fields: [ownerId], references: [id], onDelete: SetNull)
+  department Department?      @relation("DepartmentDocuments", fields: [departmentId], references: [id], onDelete: SetNull)
+
+  @@index([categoryId])
+  @@index([ownerId])
+  @@index([departmentId])
+  @@index([type])
+  @@index([status])
+  @@map("documents")
+}
+
+enum NotificationType {
+  SYSTEM
+  LEAVE
+  OVERTIME
+  ASSET
+  TRAINING
+  DOCUMENT
+  PERFORMANCE
+  ATS
+  PAYROLL
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  title     String           @db.VarChar(150)
+  message   String           @db.Text
+  type      NotificationType @default(SYSTEM)
+  link      String?          @db.VarChar(255)
+  isRead    Boolean          @default(false) @map("is_read")
+  readAt    DateTime?        @map("read_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  user User @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([type])
+  @@map("notifications")
+}
+
+
+
+
+
+
+

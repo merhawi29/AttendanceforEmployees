@@ -44,20 +44,23 @@ function EmployeeDashboard() {
   const [loading, setLoading] = useState(true);
   const [deviceStatus, setDeviceStatus] = useState<DeviceStatus | null>(null);
   const [registering, setRegistering] = useState(false);
+  const [nextHoliday, setNextHoliday] = useState<{ name: string; holidayDate: string } | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
-      const [todayData, historyData, devStatus, settingsData] = await Promise.all([
+      const [todayData, historyData, devStatus, settingsData, upcomingHolidays] = await Promise.all([
         apiRequest<TodayAttendanceResponse>("/attendance/today"),
         apiRequest<Attendance[]>("/attendance/history"),
         apiRequest<DeviceStatus>("/devices/status").catch(() => null),
         apiRequest<AttendanceSettings>("/attendance/settings").catch(() => null),
+        apiRequest<Array<{ name: string; holidayDate: string }>>("/holidays/upcoming?limit=1").catch(() => []),
       ]);
       setToday(todayData.attendance);
       setSchedule(todayData.schedule);
       setSettings(settingsData || todayData.settings || null);
       setHistory(historyData);
       setDeviceStatus(devStatus);
+      setNextHoliday(upcomingHolidays[0] || null);
     } finally {
       setLoading(false);
     }
@@ -126,8 +129,17 @@ function EmployeeDashboard() {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-4 text-sm">
-        </div>
+        {nextHoliday && (
+          <Link href="/employee/holidays" className="flex items-center gap-2.5 p-2.5 px-4 rounded-xl border border-blue-200 bg-blue-50/70 hover:bg-blue-100/70 transition-all text-xs shadow-2xs">
+            <div className="p-1.5 rounded-lg bg-blue-600 text-white font-bold">
+              <Building2 className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="font-semibold text-blue-900">Next Holiday: {nextHoliday.name}</p>
+              <p className="text-blue-700">{new Date(nextHoliday.holidayDate).toLocaleDateString("en-US", { month: "short", day: "numeric", weekday: "short" })}</p>
+            </div>
+          </Link>
+        )}
       </div>
 
       {/* Device Status Banner */}

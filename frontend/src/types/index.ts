@@ -6,6 +6,8 @@ export type AttendanceStatus =
   | "ABSENT"
   | "HALF_DAY"
   | "LUNCH_MISSING"
+  | "ON_LEAVE"
+  | "HOLIDAY"
   | "PENDING";
 
 export type PunchType = "MORNING_IN" | "LUNCH_OUT" | "LUNCH_RETURN" | "FINAL_OUT";
@@ -98,6 +100,8 @@ export interface DashboardStats {
   absentToday: number;
   lateToday: number;
   lunchMissingToday: number;
+  isHoliday?: boolean;
+  holidayName?: string | null;
   date: string;
   ethiopianDate: string;
   ethiopianDateLabel: string;
@@ -142,3 +146,6 @@ export interface ApiResponse<T = unknown> {
   code?: string;
   requestId?: string;
 }
+
+export * from "./holiday";
+

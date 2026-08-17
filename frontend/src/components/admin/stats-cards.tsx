@@ -53,23 +53,36 @@ export function StatsCards({ stats }: StatsCardsProps) {
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-      {cards.map((card) => {
-        const Icon = card.icon;
-        return (
-          <Card key={card.title} className="shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">{card.title}</CardTitle>
-              <div className={`rounded-lg p-2 ${card.color}`}>
-                <Icon className="h-4 w-4" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xl font-bold text-gray-900 tracking-tight">{card.display}</p>
-            </CardContent>
-          </Card>
-        );
-      })}
+    <div className="space-y-4">
+      {stats.isHoliday && (
+        <div className="flex items-center gap-3 p-3.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 shadow-2xs">
+          <div className="p-2 rounded-lg bg-amber-500 text-white font-bold">
+            <UtensilsCrossed className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="font-bold text-sm">Today is a Holiday: {stats.holidayName || "Public Holiday"}</p>
+            <p className="text-xs text-amber-700 font-medium">Automatic absence penalties are paused for today.</p>
+          </div>
+        </div>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        {cards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <Card key={card.title} className="shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500">{card.title}</CardTitle>
+                <div className={`rounded-lg p-2 ${card.color}`}>
+                  <Icon className="h-4 w-4" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xl font-bold text-gray-900 tracking-tight">{card.display}</p>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }
