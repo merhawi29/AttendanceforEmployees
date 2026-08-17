@@ -7,8 +7,12 @@ import {
   updateProgramSchema,
   enrollEmployeeSchema,
   updateEnrollmentSchema,
+  applyTrainingSchema,
+  approveEnrollmentSchema,
+  rejectEnrollmentSchema,
+  completeEnrollmentSchema,
 } from "../validators/training.validator";
-import { TrainingStatus } from "@prisma/client";
+import { TrainingStatus, EnrollmentStatus } from "@prisma/client";
 
 // --- PROGRAMS ---
 export const createProgram = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -46,7 +50,54 @@ export const getProgramById = asyncHandler(async (req: AuthRequest, res: Respons
   sendSuccess(res, program, "Training program details retrieved");
 });
 
-// --- ENROLLMENTS ---
+// --- EMPLOYEE APPLICATION & AVAILABLE COURSES ---
+export const applyTraining = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const validated = applyTrainingSchema.parse(req.body);
+  const employeeId = req.user!.userId;
+  const enrollment = await trainingService.applyTraining({
+    trainingProgramId: validated.trainingProgramId,
+    employeeId,
+  });
+  sendSuccess(res, enrollment, "Training application submitted successfully", 201);
+});
+
+export const getAvailableTrainings = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const employeeId = req.user!.userId;
+  const trainings = await trainingService.getAvailableTrainings(employeeId);
+  sendSuccess(res, trainings, "Available training programs retrieved");
+});
+
+export const getEmployeeTrainings = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const targetUserId = req.user?.role === "EMPLOYEE" ? req.user.userId : (req.query.employeeId as string) || req.user!.userId;
+  const trainings = await trainingService.getEmployeeTrainings(targetUserId);
+  sendSuccess(res, trainings, "Employee training courses retrieved");
+});
+
+// --- ADMIN APPROVAL WORKFLOW ---
+export const approveEnrollment = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { enrollmentId } = req.params;
+  const validated = approveEnrollmentSchema.parse(req.body);
+  const adminId = req.user!.userId;
+  const enrollment = await trainingService.approveEnrollment(enrollmentId, adminId, validated.remarks);
+  sendSuccess(res, enrollment, "Training enrollment request approved");
+});
+
+export const rejectEnrollment = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { enrollmentId } = req.params;
+  const validated = rejectEnrollmentSchema.parse(req.body);
+  const adminId = req.user!.userId;
+  const enrollment = await trainingService.rejectEnrollment(enrollmentId, adminId, validated.remarks);
+  sendSuccess(res, enrollment, "Training enrollment request rejected");
+});
+
+export const completeEnrollment = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { enrollmentId } = req.params;
+  const validated = completeEnrollmentSchema.parse(req.body);
+  const adminId = req.user!.userId;
+  const enrollment = await trainingService.completeEnrollment(enrollmentId, adminId, validated);
+  sendSuccess(res, enrollment, "Training completed and certificate issued");
+});
+
 export const enrollEmployee = asyncHandler(async (req: AuthRequest, res: Response) => {
   const validated = enrollEmployeeSchema.parse(req.body);
   const enrollment = await trainingService.enrollEmployee(validated);
@@ -66,13 +117,24 @@ export const cancelEnrollment = asyncHandler(async (req: AuthRequest, res: Respo
   sendSuccess(res, null, "Employee enrollment cancelled");
 });
 
-export const getEmployeeTrainings = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const targetUserId = req.user?.role === "EMPLOYEE" ? req.user.userId : (req.query.employeeId as string) || req.user!.userId;
-  const trainings = await trainingService.getEmployeeTrainings(targetUserId);
-  sendSuccess(res, trainings, "Employee training courses retrieved");
+export const getAdminEnrollments = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { status, trainingProgramId, search } = req.query;
+  const enrollments = await trainingService.getAdminEnrollments({
+    status: status as EnrollmentStatus | undefined,
+    trainingProgramId: trainingProgramId as string | undefined,
+    search: search as string | undefined,
+  });
+  sendSuccess(res, enrollments, "Training enrollment requests retrieved");
 });
 
-// --- ANALYTICS ---
+// --- STATS & ANALYTICS ---
+export const getTrainingStats = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const role = req.user!.role;
+  const userId = req.user!.userId;
+  const stats = await trainingService.getTrainingStats(role, userId);
+  sendSuccess(res, stats, "Training dashboard statistics retrieved");
+});
+
 export const getTrainingAnalytics = asyncHandler(async (_req: AuthRequest, res: Response) => {
   const analytics = await trainingService.getTrainingAnalytics();
   sendSuccess(res, analytics, "Training analytics retrieved");

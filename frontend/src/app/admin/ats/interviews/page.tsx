@@ -60,13 +60,14 @@ export default function AdminAtsInterviewsPage() {
       const [intRes, appRes, userRes] = await Promise.all([
         apiRequest<Interview[]>("/ats/interviews"),
         apiRequest<JobApplication[]>("/ats/applications"),
-        apiRequest<InterviewerUser[]>("/employees"),
+        apiRequest<any>("/employees"),
       ]);
-      setInterviews(intRes);
-      setApplications(appRes);
-      setInterviewers(userRes);
-      if (userRes.length && !scheduleData.interviewerId) {
-        setScheduleData((prev) => ({ ...prev, interviewerId: userRes[0].id }));
+      setInterviews(Array.isArray(intRes) ? intRes : []);
+      setApplications(Array.isArray(appRes) ? appRes : []);
+      const validInterviewers = Array.isArray(userRes) ? userRes : userRes?.employees || [];
+      setInterviewers(validInterviewers);
+      if (validInterviewers.length && !scheduleData.interviewerId) {
+        setScheduleData((prev) => ({ ...prev, interviewerId: validInterviewers[0].id }));
       }
     } catch (err) {
       console.error("Failed to load interview data", err);
@@ -280,7 +281,7 @@ export default function AdminAtsInterviewsPage() {
                         required
                       >
                         <option value="">-- Choose Interviewer --</option>
-                        {interviewers.map((usr) => (
+                        {Array.isArray(interviewers) && interviewers.map((usr) => (
                           <option key={usr.id} value={usr.id}>
                             {usr.name} ({usr.email})
                           </option>

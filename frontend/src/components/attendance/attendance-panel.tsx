@@ -181,43 +181,43 @@ function getStepBadge(
         const morningDate = new Date(attendance.morningIn);
         const mins = morningDate.getHours() * 60 + morningDate.getMinutes();
         if (mins > morningEnd) {
-          return { label: "Late", color: "bg-orange-100 text-orange-800 border border-orange-200" };
+          return { label: "Late", color: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60" };
         }
-        return { label: "Present", color: "bg-green-100 text-green-800 border border-green-200" };
+        return { label: "Present", color: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60" };
       }
       if (currentMinutes > morningEnd) {
-        return { label: "Absent", color: "bg-red-100 text-red-800 border border-red-200" };
+        return { label: "Absent", color: "bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60" };
       }
-      return { label: "Waiting", color: "bg-blue-100 text-blue-800 border border-blue-200" };
+      return { label: "Waiting", color: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60" };
     }
     case "LUNCH_OUT": {
       if (attendance?.lunchOut) {
-        return { label: "Completed", color: "bg-green-100 text-green-800 border border-green-200" };
+        return { label: "Completed", color: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60" };
       }
-      return { label: "Waiting", color: "bg-blue-100 text-blue-800 border border-blue-200" };
+      return { label: "Waiting", color: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60" };
     }
     case "LUNCH_RETURN": {
       if (attendance?.lunchReturn) {
         const returnDate = new Date(attendance.lunchReturn);
         const mins = returnDate.getHours() * 60 + returnDate.getMinutes();
         if (mins > lunchReturnDeadline) {
-          return { label: "Late", color: "bg-orange-100 text-orange-800 border border-orange-200" };
+          return { label: "Late", color: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60" };
         }
-        return { label: "Completed", color: "bg-green-100 text-green-800 border border-green-200" };
+        return { label: "Completed", color: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60" };
       }
       if (!attendance?.lunchOut) {
-        return { label: "Locked", color: "bg-gray-100 text-gray-500 border border-gray-200" };
+        return { label: "Locked", color: "bg-slate-500/10 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800/60" };
       }
       if (currentMinutes > lunchReturnDeadline) {
-        return { label: "Late", color: "bg-orange-100 text-orange-800 border border-orange-200" };
+        return { label: "Late", color: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60" };
       }
-      return { label: "Waiting", color: "bg-blue-100 text-blue-800 border border-blue-200" };
+      return { label: "Waiting", color: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60" };
     }
     case "FINAL_OUT": {
       if (attendance?.finalOut) {
-        return { label: "Completed", color: "bg-green-100 text-green-800 border border-green-200" };
+        return { label: "Completed", color: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60" };
       }
-      return { label: "Waiting", color: "bg-blue-100 text-blue-800 border border-blue-200" };
+      return { label: "Waiting", color: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60" };
     }
   }
 }
@@ -279,46 +279,82 @@ function PunchCard({
 
   let subtitle = "";
   if (punch === "MORNING_IN") {
-    subtitle = `Allowed Time: ${formatToAmPm(settings.morningCheckInStart)} - ${formatToAmPm(settings.morningCheckInEnd)}`;
+    subtitle = `Check-in window: ${formatToAmPm(settings.morningCheckInStart)} - ${formatToAmPm(settings.morningCheckInEnd)}`;
   } else if (punch === "LUNCH_OUT") {
-    subtitle = `Available After: ${formatToAmPm(settings.lunchStartTime)}`;
+    subtitle = `Available after: ${formatToAmPm(settings.lunchStartTime)}`;
   } else if (punch === "LUNCH_RETURN") {
-    subtitle = `Deadline: ${formatToAmPm(settings.lunchReturnDeadline)}`;
+    subtitle = `Return deadline: ${formatToAmPm(settings.lunchReturnDeadline)}`;
   } else if (punch === "FINAL_OUT") {
-    subtitle = `Checkout Opens: ${formatToAmPm(settings.workEndTime)}`;
+    subtitle = `Workday ends: ${formatToAmPm(settings.workEndTime)}`;
   }
 
+  const isRecorded = !!recordedAt;
+
   return (
-    <Card className="shadow-sm hover:shadow transition-shadow">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Icon className="h-5 w-5 text-blue-600" />
-            <CardTitle>{config.title}</CardTitle>
+    <Card className={`relative overflow-hidden border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+      isRecorded
+        ? "border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/20 dark:bg-emerald-950/10"
+        : step.enabled
+          ? "border-blue-300 dark:border-blue-700/80 bg-blue-50/30 dark:bg-blue-950/20 shadow-xs"
+          : "border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/80"
+    }`}>
+      {/* Top Accent Indicator Strip */}
+      <div className={`h-1 w-full ${
+        isRecorded
+          ? "bg-emerald-500"
+          : step.enabled
+            ? "bg-blue-600 animate-pulse"
+            : "bg-slate-200 dark:bg-slate-800"
+      }`} />
+
+      <CardHeader className="p-4 sm:p-5 pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className={`p-2 rounded-xl transition-colors ${
+              isRecorded
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                : step.enabled
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-400"
+            }`}>
+              <Icon className="h-4 w-4 shrink-0" />
+            </div>
+            <div>
+              <CardTitle className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">{config.title}</CardTitle>
+              <CardDescription className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">{subtitle}</CardDescription>
+            </div>
           </div>
-          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider ${badge.color}`}>
+          <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider ${badge.color}`}>
             {badge.label}
           </span>
         </div>
-        <CardDescription>{subtitle}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="text-sm">
-          <p className="text-gray-500">Your Recorded Time</p>
-          <p className="font-bold text-lg text-gray-900">{formatTime(recordedAt)}</p>
+
+      <CardContent className="p-4 sm:p-5 pt-0 space-y-3">
+        <div className="flex items-center justify-between rounded-xl bg-slate-50 dark:bg-slate-850/60 p-3 border border-slate-100 dark:border-slate-800/80">
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Recorded Time</span>
+          <span className={`font-mono text-sm sm:text-base font-extrabold ${recordedAt ? "text-slate-900 dark:text-white" : "text-slate-400 dark:text-slate-400"}`}>
+            {formatTime(recordedAt)}
+          </span>
         </div>
 
         {!step.recorded && (
-          <p className="text-xs text-gray-600 font-medium bg-gray-50 p-2.5 rounded-lg border border-gray-100">{step.message}</p>
+          <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-400 font-medium bg-slate-100/70 dark:bg-slate-800/50 p-2.5 rounded-lg border border-slate-200/50 dark:border-slate-700/50 flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
+            {step.message}
+          </p>
         )}
 
         <Button
-          variant={punch === "MORNING_IN" ? "success" : "outline"}
-          className="w-full font-medium"
+          variant={step.enabled ? "default" : isRecorded ? "secondary" : "outline"}
+          size="sm"
+          className={`w-full font-bold text-xs h-9 transition-all ${
+            step.enabled ? "bg-blue-600 hover:bg-blue-500 text-white shadow-xs" : ""
+          }`}
           disabled={(punch !== "MORNING_IN" && !step.enabled) || loading}
           onClick={handleAction}
         >
-          <Icon className="h-4 w-4" />
+          <Icon className="h-3.5 w-3.5" />
           {config.buttonLabel}
         </Button>
       </CardContent>
@@ -407,28 +443,29 @@ export function AttendancePanel({ attendance, schedule, onUpdate, settings: sett
     : 0;
 
   // Overall attendance status
-  let overallStatus: AttendanceStatus = attendance?.status || "PENDING";
+  const overallStatus: AttendanceStatus = attendance?.status || "PENDING";
 
   return (
-    <div className="space-y-4">
-      <Card className="border-blue-100 bg-blue-50/50 shadow-none">
-        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4 text-sm">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-gray-700">
-              <Clock className="h-4 w-4 text-blue-600 animate-pulse" />
+    <div className="space-y-5">
+      {/* Time & Daily Status Bar */}
+      <Card className="border border-blue-200/80 dark:border-slate-800 bg-gradient-to-r from-blue-500/10 via-indigo-500/5 to-transparent dark:from-blue-950/40 dark:via-indigo-950/20 dark:to-slate-900/80 backdrop-blur-md shadow-xs">
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4 text-xs sm:text-sm">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-semibold">
+              <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400 animate-pulse" />
               <span>
-                Local time: <strong>{clockTime}</strong>
+                Local Time: <strong className="font-mono text-sm sm:text-base text-slate-900 dark:text-white ml-1">{clockTime}</strong>
               </span>
             </div>
-            <div className="flex items-center gap-2 text-gray-700 border-l border-gray-200 pl-4">
-              <CalendarDays className="h-4 w-4 text-blue-600" />
+            <div className="hidden sm:flex items-center gap-2 text-slate-600 dark:text-slate-400 border-l border-slate-200 dark:border-slate-800 pl-4 font-medium">
+              <CalendarDays className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               <span>{clockDate || schedule.ethiopianDateLabel}</span>
             </div>
           </div>
           {overallStatus && (
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Today&apos;s Status:</span>
-              <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${getStatusColor(overallStatus)}`}>
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Today&apos;s Status:</span>
+              <span className={`rounded-full px-3 py-0.5 text-xs font-bold uppercase tracking-wider ${getStatusColor(overallStatus)}`}>
                 {formatStatusLabel(overallStatus)}
               </span>
             </div>
@@ -437,25 +474,26 @@ export function AttendancePanel({ attendance, schedule, onUpdate, settings: sett
       </Card>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          <AlertCircle className="h-4 w-4 shrink-0" />
+        <div className="flex items-center gap-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 p-4 text-xs sm:text-sm text-rose-700 dark:text-rose-300 font-semibold">
+          <AlertCircle className="h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" />
           {error}
         </div>
       )}
 
       {showClosedToast && (
         <div
-          className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700 shadow-lg"
+          className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 p-4 text-xs sm:text-sm text-amber-800 dark:text-amber-200 font-semibold shadow-xl"
           style={{
             animation: "toastSlideIn 0.3s ease-out, toastSlideOut 0.3s ease-in 4.7s forwards",
           }}
         >
-          <AlertCircle className="h-4 w-4 shrink-0" />
+          <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
           Morning attendance is closed. Lunch Break starts at {formatToAmPm(settings.lunchStartTime)}
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Responsive Workflow Step Cards Grid */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {STEP_ORDER.map((punch) => (
           <PunchCard
             key={punch}
@@ -474,7 +512,9 @@ export function AttendancePanel({ attendance, schedule, onUpdate, settings: sett
       </div>
 
       {attendance?.ipAddress && (
-        <p className="text-xs text-gray-400">Recorded from IP: {attendance.ipAddress}</p>
+        <p className="text-[11px] text-slate-400 dark:text-slate-500 font-mono text-right">
+          Recorded IP: {attendance.ipAddress}
+        </p>
       )}
     </div>
   );
@@ -483,37 +523,40 @@ export function AttendancePanel({ attendance, schedule, onUpdate, settings: sett
 export function AttendanceHistoryTable({ records }: { records: Attendance[] }) {
   if (records.length === 0) {
     return (
-      <p className="py-8 text-center text-sm text-gray-500">No attendance records found.</p>
+      <div className="py-12 text-center space-y-2">
+        <CalendarDays className="h-10 w-10 text-slate-300 dark:text-slate-600 mx-auto" />
+        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">No attendance records found yet.</p>
+      </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+    <div className="overflow-x-auto rounded-xl border border-slate-200/70 dark:border-slate-800/80">
+      <table className="w-full text-left text-xs sm:text-sm">
         <thead>
-          <tr className="border-b border-gray-200 text-left text-gray-500 uppercase tracking-wider text-xs">
-            <th className="pb-3 pr-4 font-semibold">Date</th>
-            <th className="pb-3 pr-4 font-semibold">Morning In</th>
-            <th className="pb-3 pr-4 font-semibold">Lunch Out</th>
-            <th className="pb-3 pr-4 font-semibold">Lunch Return</th>
-            <th className="pb-3 pr-4 font-semibold">Final Out</th>
-            <th className="pb-3 font-semibold">Status</th>
+          <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-850/80 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[11px] font-bold">
+            <th className="py-3 px-4">Date</th>
+            <th className="py-3 px-4">Morning In</th>
+            <th className="py-3 px-4">Lunch Out</th>
+            <th className="py-3 px-4">Lunch Return</th>
+            <th className="py-3 px-4">Final Out</th>
+            <th className="py-3 px-4">Status</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 bg-white dark:bg-slate-900/40">
           {records.map((record) => {
             const recordStatus = record.status || "PENDING";
             return (
-              <tr key={record.id} className="hover:bg-gray-50/50 transition-colors">
-                <td className="py-3.5 pr-4 font-semibold text-gray-900">
+              <tr key={record.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors">
+                <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-slate-100">
                   {record.ethiopianDateLabel || record.ethiopianDate}
                 </td>
-                <td className="py-3.5 pr-4 text-gray-600">{formatTime(record.morningIn)}</td>
-                <td className="py-3.5 pr-4 text-gray-600">{formatTime(record.lunchOut)}</td>
-                <td className="py-3.5 pr-4 text-gray-600">{formatTime(record.lunchReturn)}</td>
-                <td className="py-3.5 pr-4 text-gray-600">{formatTime(record.finalOut)}</td>
-                <td className="py-3.5">
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider ${getStatusColor(recordStatus)}`}>
+                <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300 font-mono">{formatTime(record.morningIn)}</td>
+                <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300 font-mono">{formatTime(record.lunchOut)}</td>
+                <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300 font-mono">{formatTime(record.lunchReturn)}</td>
+                <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300 font-mono">{formatTime(record.finalOut)}</td>
+                <td className="py-3.5 px-4">
+                  <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider ${getStatusColor(recordStatus)}`}>
                     {formatStatusLabel(recordStatus)}
                   </span>
                 </td>

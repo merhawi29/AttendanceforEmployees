@@ -1,6 +1,6 @@
-export type TrainingStatus = "UPCOMING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+export type TrainingStatus = "OPEN" | "CLOSED" | "UPCOMING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 
-export type EnrollmentStatus = "ENROLLED" | "IN_PROGRESS" | "COMPLETED" | "DROPPED" | "FAILED";
+export type EnrollmentStatus = "PENDING" | "APPROVED" | "REJECTED" | "COMPLETED" | "ENROLLED" | "IN_PROGRESS" | "DROPPED" | "FAILED";
 
 export interface TrainingProgram {
   id: string;
@@ -10,6 +10,7 @@ export interface TrainingProgram {
   category?: string | null;
   trainerName?: string | null;
   location?: string | null;
+  materialsUrl?: string | null;
   startDate: string;
   endDate: string;
   capacity: number;
@@ -21,11 +22,38 @@ export interface TrainingProgram {
   };
 }
 
+export interface AvailableTrainingProgram {
+  id: string;
+  code: string;
+  title: string;
+  description: string;
+  category?: string | null;
+  trainerName?: string | null;
+  location?: string | null;
+  materialsUrl?: string | null;
+  startDate: string;
+  endDate: string;
+  capacity: number;
+  status: TrainingStatus;
+  enrolledCount: number;
+  isFull: boolean;
+  myEnrollment?: {
+    id: string;
+    status: EnrollmentStatus;
+    appliedAt: string;
+  } | null;
+}
+
 export interface TrainingEnrollment {
   id: string;
   trainingProgramId: string;
   employeeId: string;
   enrolledDate: string;
+  appliedAt?: string;
+  approvedAt?: string | null;
+  approvedById?: string | null;
+  completionDate?: string | null;
+  remarks?: string | null;
   status: EnrollmentStatus;
   score?: number | null;
   certificateUrl?: string | null;
@@ -42,6 +70,11 @@ export interface TrainingEnrollment {
     email?: string;
     department?: string | null;
   };
+  approvedBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
 }
 
 export interface CategoryDistribution {
@@ -58,4 +91,19 @@ export interface TrainingAnalytics {
   certificatesIssued: number;
   completionRate: number;
   categoryBreakdown: CategoryDistribution[];
+}
+
+export interface AdminTrainingStats {
+  totalTrainings: number;
+  openTrainings: number;
+  pendingRequests: number;
+  approvedParticipants: number;
+  completedTrainings: number;
+}
+
+export interface EmployeeTrainingStats {
+  availableTrainings: number;
+  pendingRequests: number;
+  approvedTrainings: number;
+  completedTrainings: number;
 }

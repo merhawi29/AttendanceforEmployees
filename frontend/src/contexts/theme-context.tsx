@@ -33,8 +33,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (savedTheme === "dark" || savedTheme === "light") {
       applyTheme(savedTheme);
     } else {
-      // Default to light theme explicitly
-      applyTheme("light");
+      // Default to dark theme explicitly (primary design)
+      applyTheme("dark");
     }
   }, []);
 

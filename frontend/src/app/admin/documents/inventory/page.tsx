@@ -61,11 +61,11 @@ export default function AdminDocumentsInventoryPage() {
       const [docRes, catRes, empRes] = await Promise.all([
         apiRequest<Document[]>("/documents"),
         apiRequest<DocumentCategory[]>("/documents/categories"),
-        apiRequest<EmployeeSimple[]>("/employees"),
+        apiRequest<any>("/employees"),
       ]);
-      setDocuments(docRes);
-      setCategories(catRes);
-      setEmployees(empRes);
+      setDocuments(Array.isArray(docRes) ? docRes : []);
+      setCategories(Array.isArray(catRes) ? catRes : []);
+      setEmployees(Array.isArray(empRes) ? empRes : empRes?.employees || []);
       if (catRes.length && !formData.categoryId) {
         setFormData((prev) => ({ ...prev, categoryId: catRes[0].id }));
       }
@@ -369,7 +369,7 @@ export default function AdminDocumentsInventoryPage() {
                             onChange={(e) => setFormData({ ...formData, ownerId: e.target.value })}
                           >
                             <option value="">-- Choose Employee --</option>
-                            {employees.map((emp) => (
+                            {Array.isArray(employees) && employees.map((emp) => (
                               <option key={emp.id} value={emp.id}>
                                 {emp.name} ({emp.employeeId})
                               </option>

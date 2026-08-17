@@ -56,10 +56,10 @@ export default function AdminPerformanceReviewsPage() {
     try {
       const [reviewRes, empRes] = await Promise.all([
         apiRequest<PerformanceReview[]>("/performance/reviews"),
-        apiRequest<EmployeeSimple[]>("/employees"),
+        apiRequest<any>("/employees"),
       ]);
-      setReviews(reviewRes);
-      setEmployees(empRes);
+      setReviews(Array.isArray(reviewRes) ? reviewRes : []);
+      setEmployees(Array.isArray(empRes) ? empRes : empRes?.employees || []);
     } catch (err) {
       console.error("Failed to load review data", err);
     } finally {
@@ -284,7 +284,7 @@ export default function AdminPerformanceReviewsPage() {
                         required
                       >
                         <option value="">-- Choose Employee --</option>
-                        {employees.map((emp) => (
+                        {Array.isArray(employees) && employees.map((emp) => (
                           <option key={emp.id} value={emp.id}>
                             {emp.name} ({emp.employeeId}) - {emp.department || "General"}
                           </option>

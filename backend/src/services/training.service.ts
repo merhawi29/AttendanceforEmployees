@@ -1,6 +1,7 @@
 import prisma from "../config/database";
-import { TrainingStatus, EnrollmentStatus, Prisma } from "@prisma/client";
+import { TrainingStatus, EnrollmentStatus, Prisma, NotificationType } from "@prisma/client";
 import { AppError } from "../utils/response";
+import { notificationService } from "./notification.service";
 
 export interface CreateProgramInput {
   code: string;
@@ -9,6 +10,7 @@ export interface CreateProgramInput {
   category?: string;
   trainerName?: string;
   location?: string;
+  materialsUrl?: string;
   startDate: string;
   endDate: string;
   capacity?: number;
@@ -20,6 +22,21 @@ export interface EnrollEmployeeInput {
   employeeId: string;
   status?: EnrollmentStatus;
   notes?: string;
+  remarks?: string;
+}
+
+export interface ApplyTrainingInput {
+  trainingProgramId: string;
+  employeeId: string;
+}
+
+export interface CompleteEnrollmentInput {
+  score?: number;
+  certificateUrl?: string;
+  certificateNo?: string;
+  completionDate?: string;
+  feedback?: string;
+  remarks?: string;
 }
 
 export interface UpdateEnrollmentInput {
@@ -29,6 +46,7 @@ export interface UpdateEnrollmentInput {
   certificateNo?: string;
   issueDate?: string;
   feedback?: string;
+  remarks?: string;
 }
 
 export const trainingService = {
@@ -47,10 +65,11 @@ export const trainingService = {
         category: data.category || "Technical",
         trainerName: data.trainerName || null,
         location: data.location || null,
+        materialsUrl: data.materialsUrl || null,
         startDate: new Date(data.startDate),
         endDate: new Date(data.endDate),
         capacity: data.capacity || 20,
-        status: data.status || TrainingStatus.UPCOMING,
+        status: data.status || TrainingStatus.OPEN,
       },
       include: {
         _count: { select: { enrollments: true } },
@@ -71,6 +90,7 @@ export const trainingService = {
     if (data.category !== undefined) updateData.category = data.category;
     if (data.trainerName !== undefined) updateData.trainerName = data.trainerName;
     if (data.location !== undefined) updateData.location = data.location;
+    if (data.materialsUrl !== undefined) updateData.materialsUrl = data.materialsUrl;
     if (data.startDate !== undefined) updateData.startDate = new Date(data.startDate);
     if (data.endDate !== undefined) updateData.endDate = new Date(data.endDate);
     if (data.capacity !== undefined) updateData.capacity = data.capacity;
@@ -122,6 +142,7 @@ export const trainingService = {
         enrollments: {
           include: {
             employee: { select: { id: true, name: true, employeeId: true, email: true, department: true } },
+            approvedBy: { select: { id: true, name: true, email: true } },
           },
           orderBy: { enrolledDate: "desc" },
         },
@@ -133,14 +154,26 @@ export const trainingService = {
     return program;
   },
 
-  // --- ENROLLMENTS ---
-  async enrollEmployee(data: EnrollEmployeeInput) {
+  // --- EMPLOYEE APPLICATION & WORKFLOW ---
+  async applyTraining(data: ApplyTrainingInput) {
     const program = await prisma.trainingProgram.findUnique({
       where: { id: data.trainingProgramId },
-      include: { _count: { select: { enrollments: true } } },
+      include: {
+        _count: {
+          select: {
+            enrollments: {
+              where: { status: { in: [EnrollmentStatus.APPROVED, EnrollmentStatus.COMPLETED, EnrollmentStatus.ENROLLED] } },
+            },
+          },
+        },
+      },
     });
     if (!program) {
       throw new AppError(404, "Training Program not found", undefined, "PROGRAM_NOT_FOUND");
+    }
+
+    if (program.status === TrainingStatus.CLOSED || program.status === TrainingStatus.CANCELLED) {
+      throw new AppError(400, "This training program is closed for enrollment", undefined, "PROGRAM_CLOSED");
     }
 
     if (program._count.enrollments >= program.capacity) {
@@ -153,17 +186,242 @@ export const trainingService = {
     }
 
     const existing = await prisma.trainingEnrollment.findFirst({
+      where: {
+        trainingProgramId: data.trainingProgramId,
+        employeeId: data.employeeId,
+      },
+    });
+
+    if (existing) {
+      if (existing.status === EnrollmentStatus.PENDING) {
+        throw new AppError(409, "You have already submitted an enrollment request for this training", undefined, "DUPLICATE_APPLICATION");
+      }
+      if (
+        existing.status === EnrollmentStatus.APPROVED ||
+        existing.status === EnrollmentStatus.ENROLLED ||
+        existing.status === EnrollmentStatus.COMPLETED
+      ) {
+        throw new AppError(409, "You are already enrolled or have completed this training program", undefined, "ALREADY_ENROLLED");
+      }
+      if (existing.status === EnrollmentStatus.REJECTED) {
+        const updated = await prisma.trainingEnrollment.update({
+          where: { id: existing.id },
+          data: {
+            status: EnrollmentStatus.PENDING,
+            appliedAt: new Date(),
+            approvedAt: null,
+            approvedById: null,
+            remarks: null,
+          },
+          include: {
+            trainingProgram: { select: { id: true, code: true, title: true } },
+            employee: { select: { id: true, name: true, employeeId: true } },
+          },
+        });
+
+        try {
+          await notificationService.broadcastNotification({
+            title: "Training Enrollment Request",
+            message: `Employee ${employee.name} re-applied for training program: ${program.title}`,
+            type: NotificationType.TRAINING,
+            link: "/admin/training/enrollments",
+            targetRole: "ADMIN",
+          });
+        } catch (e) {}
+
+        return updated;
+      }
+    }
+
+    const newEnrollment = await prisma.trainingEnrollment.create({
+      data: {
+        trainingProgramId: data.trainingProgramId,
+        employeeId: data.employeeId,
+        status: EnrollmentStatus.PENDING,
+        appliedAt: new Date(),
+      },
+      include: {
+        trainingProgram: { select: { id: true, code: true, title: true } },
+        employee: { select: { id: true, name: true, employeeId: true } },
+      },
+    });
+
+    try {
+      await notificationService.broadcastNotification({
+        title: "New Training Enrollment Request",
+        message: `Employee ${employee.name} applied for training program: ${program.title}`,
+        type: NotificationType.TRAINING,
+        link: "/admin/training/enrollments",
+        targetRole: "ADMIN",
+      });
+    } catch (e) {}
+
+    return newEnrollment;
+  },
+
+  // --- ADMIN APPROVAL WORKFLOW ---
+  async approveEnrollment(enrollmentId: string, adminId: string, remarks?: string) {
+    const enrollment = await prisma.trainingEnrollment.findUnique({
+      where: { id: enrollmentId },
+      include: {
+        trainingProgram: true,
+        employee: true,
+      },
+    });
+
+    if (!enrollment) {
+      throw new AppError(404, "Training enrollment request not found", undefined, "ENROLLMENT_NOT_FOUND");
+    }
+
+    const updated = await prisma.trainingEnrollment.update({
+      where: { id: enrollmentId },
+      data: {
+        status: EnrollmentStatus.APPROVED,
+        approvedAt: new Date(),
+        approvedById: adminId,
+        remarks: remarks || "Enrollment request approved by Admin.",
+      },
+      include: {
+        trainingProgram: true,
+        employee: { select: { id: true, name: true, employeeId: true, email: true } },
+        approvedBy: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    try {
+      await notificationService.createNotification({
+        userId: enrollment.employeeId,
+        title: "Training Application Approved",
+        message: `Your enrollment application for training "${enrollment.trainingProgram.title}" has been APPROVED. Training materials are now accessible.`,
+        type: NotificationType.TRAINING,
+        link: "/employee/training",
+      });
+    } catch (e) {}
+
+    return updated;
+  },
+
+  async rejectEnrollment(enrollmentId: string, adminId: string, remarks?: string) {
+    const enrollment = await prisma.trainingEnrollment.findUnique({
+      where: { id: enrollmentId },
+      include: {
+        trainingProgram: true,
+      },
+    });
+
+    if (!enrollment) {
+      throw new AppError(404, "Training enrollment request not found", undefined, "ENROLLMENT_NOT_FOUND");
+    }
+
+    const updated = await prisma.trainingEnrollment.update({
+      where: { id: enrollmentId },
+      data: {
+        status: EnrollmentStatus.REJECTED,
+        approvedAt: new Date(),
+        approvedById: adminId,
+        remarks: remarks || "Enrollment request declined by Admin.",
+      },
+      include: {
+        trainingProgram: true,
+        employee: { select: { id: true, name: true, employeeId: true, email: true } },
+        approvedBy: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    try {
+      await notificationService.createNotification({
+        userId: enrollment.employeeId,
+        title: "Training Application Declined",
+        message: `Your enrollment request for "${enrollment.trainingProgram.title}" was rejected.${remarks ? ` Reason: ${remarks}` : ""}`,
+        type: NotificationType.TRAINING,
+        link: "/employee/training",
+      });
+    } catch (e) {}
+
+    return updated;
+  },
+
+  async completeEnrollment(enrollmentId: string, adminId: string, data: CompleteEnrollmentInput) {
+    const enrollment = await prisma.trainingEnrollment.findUnique({
+      where: { id: enrollmentId },
+      include: {
+        trainingProgram: true,
+      },
+    });
+
+    if (!enrollment) {
+      throw new AppError(404, "Training enrollment request not found", undefined, "ENROLLMENT_NOT_FOUND");
+    }
+
+    const compDate = data.completionDate ? new Date(data.completionDate) : new Date();
+    const certNo = data.certificateNo || `CERT-TRN-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    const updated = await prisma.trainingEnrollment.update({
+      where: { id: enrollmentId },
+      data: {
+        status: EnrollmentStatus.COMPLETED,
+        completionDate: compDate,
+        score: data.score !== undefined ? data.score : 100,
+        certificateNo: certNo,
+        certificateUrl: data.certificateUrl || null,
+        issueDate: compDate,
+        feedback: data.feedback || null,
+        remarks: data.remarks || "Training marked completed.",
+      },
+      include: {
+        trainingProgram: true,
+        employee: { select: { id: true, name: true, employeeId: true } },
+      },
+    });
+
+    try {
+      await notificationService.createNotification({
+        userId: enrollment.employeeId,
+        title: "Training Completed 🎉",
+        message: `Congratulations! You have completed training "${enrollment.trainingProgram.title}". Certificate #${certNo} issued.`,
+        type: NotificationType.TRAINING,
+        link: "/employee/training",
+      });
+    } catch (e) {}
+
+    return updated;
+  },
+
+  async enrollEmployee(data: EnrollEmployeeInput) {
+    const program = await prisma.trainingProgram.findUnique({
+      where: { id: data.trainingProgramId },
+    });
+    if (!program) {
+      throw new AppError(404, "Training Program not found", undefined, "PROGRAM_NOT_FOUND");
+    }
+
+    const existing = await prisma.trainingEnrollment.findFirst({
       where: { trainingProgramId: data.trainingProgramId, employeeId: data.employeeId },
     });
+
     if (existing) {
-      throw new AppError(409, "Employee is already enrolled in this training program", undefined, "DUPLICATE_ENROLLMENT");
+      return prisma.trainingEnrollment.update({
+        where: { id: existing.id },
+        data: {
+          status: data.status || EnrollmentStatus.APPROVED,
+          approvedAt: new Date(),
+          remarks: data.remarks || data.notes || "Direct enrollment by admin",
+        },
+        include: {
+          trainingProgram: { select: { id: true, code: true, title: true } },
+          employee: { select: { id: true, name: true, employeeId: true } },
+        },
+      });
     }
 
     return prisma.trainingEnrollment.create({
       data: {
         trainingProgramId: data.trainingProgramId,
         employeeId: data.employeeId,
-        status: data.status || EnrollmentStatus.ENROLLED,
+        status: data.status || EnrollmentStatus.APPROVED,
+        appliedAt: new Date(),
+        approvedAt: new Date(),
+        remarks: data.remarks || data.notes || "Direct enrollment by admin",
       },
       include: {
         trainingProgram: { select: { id: true, code: true, title: true } },
@@ -185,6 +443,7 @@ export const trainingService = {
     if (data.certificateNo !== undefined) updateData.certificateNo = data.certificateNo;
     if (data.issueDate !== undefined) updateData.issueDate = new Date(data.issueDate);
     if (data.feedback !== undefined) updateData.feedback = data.feedback;
+    if (data.remarks !== undefined) updateData.remarks = data.remarks;
 
     return prisma.trainingEnrollment.update({
       where: { id: enrollmentId },
@@ -204,21 +463,154 @@ export const trainingService = {
     return prisma.trainingEnrollment.delete({ where: { id: enrollmentId } });
   },
 
+  // --- QUERY APIS FOR EMPLOYEE & ADMIN ---
+  async getAvailableTrainings(employeeId: string) {
+    const openPrograms = await prisma.trainingProgram.findMany({
+      where: {
+        status: { in: [TrainingStatus.OPEN, TrainingStatus.UPCOMING] },
+      },
+      include: {
+        _count: {
+          select: {
+            enrollments: {
+              where: { status: { in: [EnrollmentStatus.APPROVED, EnrollmentStatus.COMPLETED, EnrollmentStatus.ENROLLED] } },
+            },
+          },
+        },
+        enrollments: {
+          where: { employeeId },
+          select: { id: true, status: true, appliedAt: true, approvedAt: true },
+        },
+      },
+      orderBy: { startDate: "asc" },
+    });
+
+    return openPrograms.map((prog) => {
+      const userEnrollment = prog.enrollments[0] || null;
+      return {
+        id: prog.id,
+        code: prog.code,
+        title: prog.title,
+        description: prog.description,
+        category: prog.category,
+        trainerName: prog.trainerName,
+        location: prog.location,
+        startDate: prog.startDate,
+        endDate: prog.endDate,
+        capacity: prog.capacity,
+        status: prog.status,
+        enrolledCount: prog._count.enrollments,
+        isFull: prog._count.enrollments >= prog.capacity,
+        materialsUrl:
+          userEnrollment && (userEnrollment.status === EnrollmentStatus.APPROVED || userEnrollment.status === EnrollmentStatus.COMPLETED)
+            ? prog.materialsUrl
+            : null,
+        myEnrollment: userEnrollment
+          ? {
+              id: userEnrollment.id,
+              status: userEnrollment.status,
+              appliedAt: userEnrollment.appliedAt,
+            }
+          : null,
+      };
+    });
+  },
+
   async getEmployeeTrainings(employeeId: string) {
-    return prisma.trainingEnrollment.findMany({
+    const enrollments = await prisma.trainingEnrollment.findMany({
       where: { employeeId },
       include: {
         trainingProgram: true,
+        approvedBy: { select: { name: true } },
       },
-      orderBy: { enrolledDate: "desc" },
+      orderBy: { createdAt: "desc" },
     });
+
+    return enrollments.map((enr) => ({
+      ...enr,
+      trainingProgram: {
+        ...enr.trainingProgram,
+        materialsUrl:
+          enr.status === EnrollmentStatus.APPROVED || enr.status === EnrollmentStatus.COMPLETED ? enr.trainingProgram.materialsUrl : null,
+      },
+    }));
+  },
+
+  async getAdminEnrollments(query: { status?: EnrollmentStatus; trainingProgramId?: string; search?: string }) {
+    const where: Prisma.TrainingEnrollmentWhereInput = {};
+    if (query.status) where.status = query.status;
+    if (query.trainingProgramId) where.trainingProgramId = query.trainingProgramId;
+    if (query.search) {
+      where.OR = [
+        { employee: { name: { contains: query.search } } },
+        { employee: { employeeId: { contains: query.search } } },
+        { trainingProgram: { title: { contains: query.search } } },
+        { trainingProgram: { code: { contains: query.search } } },
+      ];
+    }
+
+    return prisma.trainingEnrollment.findMany({
+      where,
+      include: {
+        employee: { select: { id: true, name: true, employeeId: true, email: true, department: true } },
+        trainingProgram: true,
+        approvedBy: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  },
+
+  async getTrainingStats(role: string, userId: string) {
+    if (role === "ADMIN") {
+      const totalTrainings = await prisma.trainingProgram.count();
+      const openTrainings = await prisma.trainingProgram.count({
+        where: { status: { in: [TrainingStatus.OPEN, TrainingStatus.UPCOMING] } },
+      });
+      const pendingRequests = await prisma.trainingEnrollment.count({
+        where: { status: EnrollmentStatus.PENDING },
+      });
+      const approvedParticipants = await prisma.trainingEnrollment.count({
+        where: { status: { in: [EnrollmentStatus.APPROVED, EnrollmentStatus.ENROLLED] } },
+      });
+      const completedTrainings = await prisma.trainingEnrollment.count({
+        where: { status: EnrollmentStatus.COMPLETED },
+      });
+
+      return {
+        totalTrainings,
+        openTrainings,
+        pendingRequests,
+        approvedParticipants,
+        completedTrainings,
+      };
+    } else {
+      const availableTrainings = await prisma.trainingProgram.count({
+        where: { status: { in: [TrainingStatus.OPEN, TrainingStatus.UPCOMING] } },
+      });
+      const pendingRequests = await prisma.trainingEnrollment.count({
+        where: { employeeId: userId, status: EnrollmentStatus.PENDING },
+      });
+      const approvedTrainings = await prisma.trainingEnrollment.count({
+        where: { employeeId: userId, status: { in: [EnrollmentStatus.APPROVED, EnrollmentStatus.ENROLLED] } },
+      });
+      const completedTrainings = await prisma.trainingEnrollment.count({
+        where: { employeeId: userId, status: EnrollmentStatus.COMPLETED },
+      });
+
+      return {
+        availableTrainings,
+        pendingRequests,
+        approvedTrainings,
+        completedTrainings,
+      };
+    }
   },
 
   // --- ANALYTICS ---
   async getTrainingAnalytics() {
     const totalPrograms = await prisma.trainingProgram.count();
     const activeSessions = await prisma.trainingProgram.count({
-      where: { status: { in: [TrainingStatus.UPCOMING, TrainingStatus.IN_PROGRESS] } },
+      where: { status: { in: [TrainingStatus.OPEN, TrainingStatus.UPCOMING, TrainingStatus.IN_PROGRESS] } },
     });
     const completedPrograms = await prisma.trainingProgram.count({
       where: { status: TrainingStatus.COMPLETED },

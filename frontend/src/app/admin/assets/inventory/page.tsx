@@ -77,11 +77,11 @@ export default function AdminAssetsInventoryPage() {
       const [assetRes, catRes, empRes] = await Promise.all([
         apiRequest<Asset[]>("/assets"),
         apiRequest<AssetCategory[]>("/assets/categories"),
-        apiRequest<EmployeeSimple[]>("/employees"),
+        apiRequest<any>("/employees"),
       ]);
-      setAssets(assetRes);
-      setCategories(catRes);
-      setEmployees(empRes);
+      setAssets(Array.isArray(assetRes) ? assetRes : []);
+      setCategories(Array.isArray(catRes) ? catRes : []);
+      setEmployees(Array.isArray(empRes) ? empRes : empRes?.employees || []);
       if (catRes.length && !formData.categoryId) {
         setFormData((prev) => ({ ...prev, categoryId: catRes[0].id }));
       }
@@ -512,7 +512,7 @@ export default function AdminAssetsInventoryPage() {
                         required
                       >
                         <option value="">-- Choose Employee --</option>
-                        {employees.map((emp) => (
+                        {Array.isArray(employees) && employees.map((emp) => (
                           <option key={emp.id} value={emp.id}>
                             {emp.name} ({emp.employeeId}) - {emp.department || "General"}
                           </option>

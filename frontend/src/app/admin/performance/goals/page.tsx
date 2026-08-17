@@ -53,10 +53,10 @@ export default function AdminPerformanceGoalsPage() {
     try {
       const [goalsRes, empRes] = await Promise.all([
         apiRequest<PerformanceGoal[]>("/performance/goals"),
-        apiRequest<EmployeeSimple[]>("/employees"),
+        apiRequest<any>("/employees"),
       ]);
-      setGoals(goalsRes);
-      setEmployees(empRes);
+      setGoals(Array.isArray(goalsRes) ? goalsRes : []);
+      setEmployees(Array.isArray(empRes) ? empRes : empRes?.employees || []);
     } catch (err) {
       console.error("Failed to load goals data", err);
     } finally {
@@ -263,7 +263,7 @@ export default function AdminPerformanceGoalsPage() {
                         required
                       >
                         <option value="">-- Choose Employee --</option>
-                        {employees.map((emp) => (
+                        {Array.isArray(employees) && employees.map((emp) => (
                           <option key={emp.id} value={emp.id}>
                             {emp.name} ({emp.employeeId}) - {emp.department || "General"}
                           </option>

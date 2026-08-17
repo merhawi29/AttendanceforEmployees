@@ -8,60 +8,61 @@ datasource db {
 }
 
 model User {
-  id                        String               @id @default(cuid())
-  email                     String               @unique
-  password                  String
-  name                      String
-  employeeId                String               @unique @map("employee_id")
-  department                String?
-  role                      Role                 @default(EMPLOYEE)
-  isActive                  Boolean              @default(true) @map("is_active")
-  createdAt                 DateTime             @default(now()) @map("created_at")
-  updatedAt                 DateTime             @updatedAt @map("updated_at")
-  resetExpire               DateTime?            @map("reset_expire")
-  resetToken                String?              @map("reset_token")
-  departmentId              String?              @map("department_id")
-  employmentType            String?              @default("FULL_TIME") @map("employment_type") @db.VarChar(50)
-  hireDate                  DateTime?            @map("hire_date")
-  phone                     String?              @db.VarChar(30)
-  positionId                String?              @map("position_id")
-  salary                    Decimal?             @db.Decimal(12, 2)
-  address                   String?              @db.Text
-  avatarUrl                 String?              @map("avatar_url") @db.VarChar(255)
-  dateOfBirth               DateTime?            @map("date_of_birth") @db.Date
-  employmentStatus          EmploymentStatus     @default(ACTIVE) @map("employment_status")
-  firstName                 String?              @map("first_name") @db.VarChar(50)
-  gender                    Gender?
-  lastName                  String?              @map("last_name") @db.VarChar(50)
-  managerId                 String?              @map("manager_id")
-  middleName                String?              @map("middle_name") @db.VarChar(50)
-  conductedAssetAssignments AssetAssignment[]    @relation("AssignerAssetAssignments")
-  assetAssignments          AssetAssignment[]    @relation("EmployeeAssetAssignments")
-  assignedAssets            Asset[]              @relation("UserAssignedAssets")
-  attendances               Attendance[]
-  headedDepartment          Department?          @relation("DepartmentHead")
-  documents                 Document[]           @relation("UserDocuments")
-  employeeDevices           EmployeeDevice[]
-  conductedInterviews       Interview[]          @relation("InterviewerConducted")
-  leaveBalances             LeaveBalance[]
-  approvedLeaveRequests     LeaveRequest[]       @relation("AdminLeaveRequests")
-  managedLeaveRequests      LeaveRequest[]       @relation("ManagerLeaveRequests")
-  leaveRequests             LeaveRequest[]       @relation("EmployeeLeaveRequests")
-  notifications             Notification[]       @relation("UserNotifications")
-  approvedOvertimeRequests  OvertimeRequest[]    @relation("AdminOvertimeRequests")
-  managedOvertimeRequests   OvertimeRequest[]    @relation("ManagerOvertimeRequests")
-  overtimeRequests          OvertimeRequest[]    @relation("EmployeeOvertimeRequests")
-  payrollRecords            PayrollRecord[]
-  performanceGoals          PerformanceGoal[]    @relation("EmployeePerformanceGoals")
-  performanceReviews        PerformanceReview[]  @relation("EmployeePerformanceReviews")
-  givenPerformanceReviews   PerformanceReview[]  @relation("ReviewerPerformanceReviews")
-  refreshTokens             RefreshToken[]
-  salaryStructure           SalaryStructure?
-  trainingEnrollments       TrainingEnrollment[] @relation("EmployeeTrainingEnrollments")
-  departmentRef             Department?          @relation("DepartmentMembers", fields: [departmentId], references: [id])
-  manager                   User?                @relation("EmployeeManager", fields: [managerId], references: [id])
-  directReports             User[]               @relation("EmployeeManager")
-  position                  Position?            @relation("PositionEmployees", fields: [positionId], references: [id])
+  id                          String               @id @default(cuid())
+  email                       String               @unique
+  password                    String
+  name                        String
+  employeeId                  String               @unique @map("employee_id")
+  department                  String?
+  role                        Role                 @default(EMPLOYEE)
+  isActive                    Boolean              @default(true) @map("is_active")
+  createdAt                   DateTime             @default(now()) @map("created_at")
+  updatedAt                   DateTime             @updatedAt @map("updated_at")
+  resetExpire                 DateTime?            @map("reset_expire")
+  resetToken                  String?              @map("reset_token")
+  departmentId                String?              @map("department_id")
+  employmentType              String?              @default("FULL_TIME") @map("employment_type") @db.VarChar(50)
+  hireDate                    DateTime?            @map("hire_date")
+  phone                       String?              @db.VarChar(30)
+  positionId                  String?              @map("position_id")
+  salary                      Decimal?             @db.Decimal(12, 2)
+  address                     String?              @db.Text
+  avatarUrl                   String?              @map("avatar_url") @db.VarChar(255)
+  dateOfBirth                 DateTime?            @map("date_of_birth") @db.Date
+  employmentStatus            EmploymentStatus     @default(ACTIVE) @map("employment_status")
+  firstName                   String?              @map("first_name") @db.VarChar(50)
+  gender                      Gender?
+  lastName                    String?              @map("last_name") @db.VarChar(50)
+  managerId                   String?              @map("manager_id")
+  middleName                  String?              @map("middle_name") @db.VarChar(50)
+  conductedAssetAssignments   AssetAssignment[]    @relation("AssignerAssetAssignments")
+  assetAssignments            AssetAssignment[]    @relation("EmployeeAssetAssignments")
+  assignedAssets              Asset[]              @relation("UserAssignedAssets")
+  attendances                 Attendance[]
+  headedDepartment            Department?          @relation("DepartmentHead")
+  documents                   Document[]           @relation("UserDocuments")
+  employeeDevices             EmployeeDevice[]
+  conductedInterviews         Interview[]          @relation("InterviewerConducted")
+  leaveBalances               LeaveBalance[]
+  approvedLeaveRequests       LeaveRequest[]       @relation("AdminLeaveRequests")
+  managedLeaveRequests        LeaveRequest[]       @relation("ManagerLeaveRequests")
+  leaveRequests               LeaveRequest[]       @relation("EmployeeLeaveRequests")
+  notifications               Notification[]       @relation("UserNotifications")
+  approvedOvertimeRequests    OvertimeRequest[]    @relation("AdminOvertimeRequests")
+  managedOvertimeRequests     OvertimeRequest[]    @relation("ManagerOvertimeRequests")
+  overtimeRequests            OvertimeRequest[]    @relation("EmployeeOvertimeRequests")
+  payrollRecords              PayrollRecord[]
+  performanceGoals            PerformanceGoal[]    @relation("EmployeePerformanceGoals")
+  performanceReviews          PerformanceReview[]  @relation("EmployeePerformanceReviews")
+  givenPerformanceReviews     PerformanceReview[]  @relation("ReviewerPerformanceReviews")
+  refreshTokens               RefreshToken[]
+  salaryStructure             SalaryStructure?
+  approvedTrainingEnrollments TrainingEnrollment[] @relation("AdminApprovedTrainingEnrollments")
+  trainingEnrollments         TrainingEnrollment[] @relation("EmployeeTrainingEnrollments")
+  departmentRef               Department?          @relation("DepartmentMembers", fields: [departmentId], references: [id])
+  manager                     User?                @relation("EmployeeManager", fields: [managerId], references: [id])
+  directReports               User[]               @relation("EmployeeManager")
+  position                    Position?            @relation("PositionEmployees", fields: [positionId], references: [id])
 
   @@index([departmentId])
   @@index([positionId])
@@ -519,20 +520,21 @@ model AssetAssignment {
 }
 
 model TrainingProgram {
-  id          String               @id @default(cuid())
-  code        String               @unique @db.VarChar(50)
-  title       String               @db.VarChar(150)
-  description String               @db.Text
-  category    String?              @db.VarChar(100)
-  trainerName String?              @map("trainer_name") @db.VarChar(100)
-  location    String?              @db.VarChar(255)
-  startDate   DateTime             @map("start_date") @db.Date
-  endDate     DateTime             @map("end_date") @db.Date
-  capacity    Int                  @default(20)
-  status      TrainingStatus       @default(UPCOMING)
-  createdAt   DateTime             @default(now()) @map("created_at")
-  updatedAt   DateTime             @updatedAt @map("updated_at")
-  enrollments TrainingEnrollment[]
+  id           String               @id @default(cuid())
+  code         String               @unique @db.VarChar(50)
+  title        String               @db.VarChar(150)
+  description  String               @db.Text
+  category     String?              @db.VarChar(100)
+  trainerName  String?              @map("trainer_name") @db.VarChar(100)
+  location     String?              @db.VarChar(255)
+  startDate    DateTime             @map("start_date") @db.Date
+  endDate      DateTime             @map("end_date") @db.Date
+  capacity     Int                  @default(20)
+  status       TrainingStatus       @default(OPEN)
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+  materialsUrl String?              @map("materials_url") @db.Text
+  enrollments  TrainingEnrollment[]
 
   @@index([status])
   @@index([category])
@@ -544,7 +546,7 @@ model TrainingEnrollment {
   trainingProgramId String           @map("training_program_id")
   employeeId        String           @map("employee_id")
   enrolledDate      DateTime         @default(now()) @map("enrolled_date")
-  status            EnrollmentStatus @default(ENROLLED)
+  status            EnrollmentStatus @default(PENDING)
   score             Float?
   certificateUrl    String?          @map("certificate_url")
   certificateNo     String?          @map("certificate_no") @db.VarChar(100)
@@ -552,11 +554,18 @@ model TrainingEnrollment {
   feedback          String?          @db.Text
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
+  appliedAt         DateTime         @default(now()) @map("applied_at")
+  approvedAt        DateTime?        @map("approved_at")
+  approvedById      String?          @map("approved_by_id")
+  completionDate    DateTime?        @map("completion_date")
+  remarks           String?          @db.Text
+  approvedBy        User?            @relation("AdminApprovedTrainingEnrollments", fields: [approvedById], references: [id])
   employee          User             @relation("EmployeeTrainingEnrollments", fields: [employeeId], references: [id], onDelete: Cascade)
   trainingProgram   TrainingProgram  @relation(fields: [trainingProgramId], references: [id], onDelete: Cascade)
 
   @@index([trainingProgramId])
   @@index([employeeId])
+  @@index([approvedById])
   @@index([status])
   @@map("training_enrollments")
 }
@@ -753,6 +762,8 @@ enum AssignmentStatus {
 }
 
 enum TrainingStatus {
+  OPEN
+  CLOSED
   UPCOMING
   IN_PROGRESS
   COMPLETED
@@ -760,6 +771,9 @@ enum TrainingStatus {
 }
 
 enum EnrollmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
   ENROLLED
   IN_PROGRESS
   COMPLETED
