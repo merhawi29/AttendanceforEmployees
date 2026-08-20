@@ -2,7 +2,9 @@ export type AssetStatus = "AVAILABLE" | "ASSIGNED" | "UNDER_MAINTENANCE" | "DISP
 
 export type AssetCondition = "NEW" | "EXCELLENT" | "GOOD" | "FAIR" | "DAMAGED";
 
-export type AssignmentStatus = "ACTIVE" | "RETURNED";
+export type AssignmentStatus = "ACTIVE" | "RETURN_PENDING" | "RETURNED";
+
+export type AssetReturnRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 export interface AssetCategory {
   id: string;
@@ -14,6 +16,43 @@ export interface AssetCategory {
   _count?: {
     assets: number;
   };
+}
+
+export interface AssetReturnRequest {
+  id: string;
+  assignmentId: string;
+  assetId: string;
+  requestedById: string;
+  requestedAt: string;
+  returnCondition: AssetCondition;
+  employeeComment?: string | null;
+  status: AssetReturnRequestStatus;
+  verifiedCondition?: AssetCondition | null;
+  adminComment?: string | null;
+  approvedById?: string | null;
+  approvedAt?: string | null;
+  rejectedById?: string | null;
+  rejectedAt?: string | null;
+  rejectedReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  asset?: Asset;
+  assignment?: AssetAssignment;
+  requestedBy?: {
+    id: string;
+    name: string;
+    employeeId: string;
+    department?: string | null;
+    position?: { title: string } | null;
+  };
+  approvedBy?: {
+    id: string;
+    name: string;
+  } | null;
+  rejectedBy?: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 export interface AssetAssignment {
@@ -45,6 +84,7 @@ export interface AssetAssignment {
     condition?: AssetCondition;
     serialNumber?: string | null;
   };
+  returnRequests?: AssetReturnRequest[];
 }
 
 export interface Asset {
@@ -73,6 +113,7 @@ export interface Asset {
     department?: string | null;
   } | null;
   assignments?: AssetAssignment[];
+  returnRequests?: AssetReturnRequest[];
 }
 
 export interface CategoryBreakdown {

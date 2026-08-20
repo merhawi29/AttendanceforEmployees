@@ -22,10 +22,10 @@ interface SettingsState {
 
 function SettingsContent() {
   const [settings, setSettings] = useState<SettingsState>({
-    morningCheckInStart: "07:30",
+    morningCheckInStart: "06:30",
     morningCheckInEnd: "08:45",
     lunchStartTime: "12:30",
-    lunchReturnDeadline: "14:30",
+    lunchReturnDeadline: "13:30",
     workEndTime: "17:30",
     gracePeriodMinutes: 15,
   });

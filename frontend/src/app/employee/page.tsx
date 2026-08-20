@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Attendance, AttendanceSchedule, TodayAttendanceResponse, DeviceStatus, AttendanceSettings } from "@/types";
 import { apiRequest } from "@/lib/api";
+import { formatToAmPm } from "@/lib/time-format";
 import { useAuth } from "@/contexts/auth-context";
 import { getDeviceInfo } from "@/lib/device";
 import {
@@ -235,7 +236,7 @@ function EmployeeDashboard() {
               <p className="text-xl font-extrabold text-slate-900 dark:text-white font-mono">
                 {today?.morningIn ? new Date(today.morningIn).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }) : "--:--"}
               </p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">Target window: {settings?.morningCheckInStart || "07:30"} - {settings?.morningCheckInEnd || "08:45"}</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Target window: {formatToAmPm(settings?.morningCheckInStart || "06:30")} - {formatToAmPm(settings?.morningCheckInEnd || "08:45")}</p>
             </div>
             <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
               <Clock className="h-6 w-6" />

@@ -34,7 +34,15 @@ export default function AdminPerformanceGoalsPage() {
   const [search, setSearch] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
 
-  // Modal State
+  // Review Modal State
+  const [reviewGoal, setReviewGoal] = useState<PerformanceGoal | null>(null);
+  const [rejectionFeedback, setRejectionFeedback] = useState("");
+  const [reviewing, setReviewing] = useState(false);
+
+  // History Modal State
+  const [historyGoal, setHistoryGoal] = useState<PerformanceGoal | null>(null);
+
+  // Assign Modal State
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -95,6 +103,27 @@ export default function AdminPerformanceGoalsPage() {
     }
   };
 
+  const handleReviewCompletion = async (action: "APPROVE" | "REJECT") => {
+    if (!reviewGoal) return;
+    setReviewing(true);
+    try {
+      await apiRequest(`/performance/goals/${reviewGoal.id}/review-completion`, {
+        method: "POST",
+        body: JSON.stringify({
+          action,
+          feedback: rejectionFeedback,
+        }),
+      });
+      setReviewGoal(null);
+      setRejectionFeedback("");
+      fetchData();
+    } catch (err) {
+      console.error("Failed to review completion request", err);
+    } finally {
+      setReviewing(false);
+    }
+  };
+
   const handleDeleteGoal = async (id: string) => {
     if (!confirm("Are you sure you want to delete this performance goal?")) return;
     try {
@@ -104,6 +133,8 @@ export default function AdminPerformanceGoalsPage() {
       console.error("Failed to delete goal", err);
     }
   };
+
+  const completionRequestsCount = goals.filter((g) => g.status === "COMPLETION_REQUESTED").length;
 
   const filteredGoals = goals.filter((g) => {
     const matchesSearch =
@@ -140,6 +171,30 @@ export default function AdminPerformanceGoalsPage() {
             </div>
           </div>
 
+          {/* Pending Completion Requests Banner */}
+          {completionRequestsCount > 0 && (
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-amber-500/20 p-2 text-amber-700">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold">Goal Completion Requests Pending</h3>
+                  <p className="text-xs text-amber-800">
+                    There {completionRequestsCount === 1 ? "is 1 completion request" : `are ${completionRequestsCount} completion requests`} submitted by employees awaiting manager review.
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => setSelectedStatus("COMPLETION_REQUESTED")}
+                className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shrink-0"
+              >
+                View Pending Requests ({completionRequestsCount})
+              </Button>
+            </div>
+          )}
+
           {/* Filters & Search */}
           <Card>
             <CardContent className="p-4 flex flex-col sm:flex-row gap-4 justify-between items-center">
@@ -154,15 +209,20 @@ export default function AdminPerformanceGoalsPage() {
               </div>
 
               <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                {["ALL", "NOT_STARTED", "IN_PROGRESS", "COMPLETED", "CANCELLED"].map((st) => (
+                {["ALL", "COMPLETION_REQUESTED", "IN_PROGRESS", "COMPLETED", "NOT_STARTED", "CANCELLED"].map((st) => (
                   <Button
                     key={st}
                     variant={selectedStatus === st ? "default" : "outline"}
                     size="sm"
                     onClick={() => setSelectedStatus(st)}
-                    className="text-xs"
+                    className="text-xs relative"
                   >
-                    {st.replace("_", " ")}
+                    {st === "COMPLETION_REQUESTED" ? "Completion Requested" : st.replace("_", " ")}
+                    {st === "COMPLETION_REQUESTED" && completionRequestsCount > 0 && (
+                      <span className="ml-1.5 rounded-full bg-amber-500 text-white text-[10px] px-1.5 py-0.2 font-bold">
+                        {completionRequestsCount}
+                      </span>
+                    )}
                   </Button>
                 ))}
               </div>
@@ -179,17 +239,19 @@ export default function AdminPerformanceGoalsPage() {
               {filteredGoals.map((goal) => (
                 <Card key={goal.id} className="hover:shadow-md transition-shadow">
                   <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between gap-2">
                       <Badge
                         className={
                           goal.status === "COMPLETED"
                             ? "bg-emerald-100 text-emerald-800"
+                            : goal.status === "COMPLETION_REQUESTED"
+                            ? "bg-amber-100 text-amber-800 border border-amber-300"
                             : goal.status === "IN_PROGRESS"
                             ? "bg-blue-100 text-blue-800"
                             : "bg-gray-100 text-gray-700"
                         }
                       >
-                        {goal.status.replace("_", " ")}
+                        {goal.status === "COMPLETION_REQUESTED" ? "Completion Requested" : goal.status.replace("_", " ")}
                       </Badge>
                       <Button
                         variant="ghost"
@@ -217,7 +279,9 @@ export default function AdminPerformanceGoalsPage() {
                       </div>
                       <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
                         <div
-                          className="h-full bg-emerald-600 rounded-full transition-all"
+                          className={`h-full rounded-full transition-all ${
+                            goal.status === "COMPLETED" ? "bg-emerald-600" : goal.status === "COMPLETION_REQUESTED" ? "bg-amber-500" : "bg-emerald-600"
+                          }`}
                           style={{ width: `${goal.progressPercentage}%` }}
                         />
                       </div>
@@ -228,6 +292,32 @@ export default function AdminPerformanceGoalsPage() {
                         <Calendar className="h-3.5 w-3.5" />
                         Target: {new Date(goal.targetDate).toLocaleDateString()}
                       </span>
+
+                      <div className="flex items-center gap-1">
+                        {goal.progressHistories && goal.progressHistories.length > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setHistoryGoal(goal)}
+                            className="h-7 text-[11px] text-slate-600"
+                          >
+                            History ({goal.progressHistories.length})
+                          </Button>
+                        )}
+
+                        {goal.status === "COMPLETION_REQUESTED" && (
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setReviewGoal(goal);
+                              setRejectionFeedback("");
+                            }}
+                            className="h-7 text-xs bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                          >
+                            Review Request
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -311,6 +401,158 @@ export default function AdminPerformanceGoalsPage() {
                       </Button>
                     </div>
                   </form>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Review Goal Completion Modal */}
+          {reviewGoal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <Card className="w-full max-w-lg bg-white shadow-xl">
+                <CardHeader className="border-b pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <CheckCircle2 className="h-5 w-5 text-amber-600" />
+                        Review Goal Completion Request
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Employee: <strong className="text-slate-900">{reviewGoal.employee?.name}</strong> ({reviewGoal.employee?.employeeId})
+                      </CardDescription>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => setReviewGoal(null)}>
+                      ✕
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-5 space-y-4">
+                  <div className="rounded-lg bg-slate-50 p-3.5 border text-xs space-y-1.5">
+                    <p className="font-bold text-slate-900 text-sm">{reviewGoal.title}</p>
+                    {reviewGoal.description && <p className="text-slate-600">{reviewGoal.description}</p>}
+                    <div className="flex justify-between pt-1 text-[11px] text-slate-500 border-t">
+                      <span>Target Date: {new Date(reviewGoal.targetDate).toLocaleDateString()}</span>
+                      <span className="font-bold text-amber-700">Status: Completion Requested (100%)</span>
+                    </div>
+                  </div>
+
+                  {/* Submission History / Notes */}
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-bold text-slate-700 uppercase">Progress & Notes History</h4>
+                    <div className="max-h-40 overflow-y-auto space-y-2 rounded-md border p-2.5 bg-white text-xs">
+                      {reviewGoal.progressHistories && reviewGoal.progressHistories.length ? (
+                        reviewGoal.progressHistories.map((h) => (
+                          <div key={h.id} className="p-2 bg-slate-50 rounded border space-y-1">
+                            <div className="flex justify-between font-semibold text-slate-800">
+                              <span>{h.submittedBy?.name || "Employee"} ({h.previousProgress}% → {h.newProgress}%)</span>
+                              <span className="text-[10px] text-slate-500">{new Date(h.createdAt).toLocaleString()}</span>
+                            </div>
+                            {h.note && <p className="text-slate-700 bg-white p-1.5 rounded border text-[11px]">Note: {h.note}</p>}
+                            {h.feedback && <p className="text-rose-700 bg-rose-50 p-1.5 rounded border text-[11px]">Feedback: {h.feedback}</p>}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-slate-400 text-center py-2">No previous notes recorded.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Rejection / Feedback Input */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Manager Feedback / Rejection Reason (Optional for approval, recommended for rejection)
+                    </label>
+                    <textarea
+                      className="w-full rounded-md border border-gray-300 p-2.5 text-sm"
+                      rows={3}
+                      placeholder="Provide feedback or justification..."
+                      value={rejectionFeedback}
+                      onChange={(e) => setRejectionFeedback(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-3 border-t">
+                    <Button variant="outline" type="button" onClick={() => setReviewGoal(null)} disabled={reviewing}>
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      disabled={reviewing}
+                      onClick={() => handleReviewCompletion("REJECT")}
+                      className="bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+                    >
+                      {reviewing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Reject Request"}
+                    </Button>
+                    <Button
+                      type="button"
+                      disabled={reviewing}
+                      onClick={() => handleReviewCompletion("APPROVE")}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                    >
+                      {reviewing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Approve Completion"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Goal History Modal */}
+          {historyGoal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <Card className="w-full max-w-lg bg-white shadow-xl max-h-[85vh] flex flex-col">
+                <CardHeader className="border-b pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-base">Progress Audit Trail</CardTitle>
+                      <CardDescription className="text-xs text-gray-600">
+                        {historyGoal.title} — {historyGoal.employee?.name}
+                      </CardDescription>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => setHistoryGoal(null)}>
+                      ✕
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4 overflow-y-auto space-y-3">
+                  {historyGoal.progressHistories && historyGoal.progressHistories.length ? (
+                    historyGoal.progressHistories.map((item) => (
+                      <div key={item.id} className="rounded-lg border p-3 bg-slate-50 text-xs space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-slate-800">
+                            {item.submittedBy?.name || "User"} ({item.previousProgress}% → {item.newProgress}%)
+                          </span>
+                          <span className="text-[11px] text-slate-500">
+                            {new Date(item.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Badge className={
+                            item.action === "APPROVED" ? "bg-emerald-100 text-emerald-800" :
+                            item.action === "REJECTED" ? "bg-rose-100 text-rose-800" :
+                            item.action === "COMPLETION_REQUESTED" ? "bg-amber-100 text-amber-800" : "bg-blue-100 text-blue-800"
+                          }>
+                            {item.action.replace("_", " ")}
+                          </Badge>
+                        </div>
+
+                        {item.note && (
+                          <p className="text-slate-700 bg-white p-2 rounded border font-sans text-xs">
+                            <span className="font-bold">Note:</span> {item.note}
+                          </p>
+                        )}
+
+                        {item.feedback && (
+                          <p className="text-rose-700 bg-rose-50 p-2 rounded border border-rose-200 font-sans text-xs">
+                            <span className="font-bold">Feedback:</span> {item.feedback}
+                          </p>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-center text-xs text-gray-500 py-4">No audit history recorded yet.</p>
+                  )}
                 </CardContent>
               </Card>
             </div>

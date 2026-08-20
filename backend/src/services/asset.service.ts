@@ -1,5 +1,5 @@
 import prisma from "../config/database";
-import { AssetStatus, AssetCondition, AssignmentStatus, Prisma } from "@prisma/client";
+import { AssetStatus, AssetCondition, AssignmentStatus, AssetReturnRequestStatus, Prisma } from "@prisma/client";
 import { AppError } from "../utils/response";
 
 export interface CreateCategoryInput {
@@ -325,8 +325,250 @@ export const assetService = {
       where: { assignedToId: employeeId },
       include: {
         category: { select: { id: true, name: true, code: true } },
+        assignments: {
+          where: { employeeId },
+          include: {
+            returnRequests: {
+              include: {
+                requestedBy: { select: { id: true, name: true, employeeId: true } },
+                approvedBy: { select: { id: true, name: true } },
+                rejectedBy: { select: { id: true, name: true } },
+              },
+              orderBy: { createdAt: "desc" },
+            },
+          },
+          orderBy: { assignedDate: "desc" },
+        },
       },
       orderBy: { assignedDate: "desc" },
+    });
+  },
+
+  // --- RETURN REQUESTS WORKFLOW ---
+  async createReturnRequest(
+    requestedById: string,
+    data: { assignmentId: string; returnCondition?: AssetCondition; employeeComment?: string }
+  ) {
+    const assignment = await prisma.assetAssignment.findUnique({
+      where: { id: data.assignmentId },
+      include: { asset: true },
+    });
+
+    if (!assignment) {
+      throw new AppError(404, "Asset assignment record not found", undefined, "ASSIGNMENT_NOT_FOUND");
+    }
+
+    if (assignment.employeeId !== requestedById) {
+      throw new AppError(403, "You are not authorized to request return for this asset assignment", undefined, "FORBIDDEN");
+    }
+
+    if (assignment.status !== AssignmentStatus.ACTIVE) {
+      throw new AppError(400, "Assignment is not active or a return request is already in progress", undefined, "INVALID_ASSIGNMENT_STATUS");
+    }
+
+    const existingPending = await prisma.assetReturnRequest.findFirst({
+      where: {
+        assignmentId: data.assignmentId,
+        status: AssetReturnRequestStatus.PENDING,
+      },
+    });
+
+    if (existingPending) {
+      throw new AppError(
+        400,
+        "A return request for this asset is already pending admin verification.",
+        undefined,
+        "DUPLICATE_RETURN_REQUEST"
+      );
+    }
+
+    return prisma.$transaction(async (tx) => {
+      const returnRequest = await tx.assetReturnRequest.create({
+        data: {
+          assignmentId: data.assignmentId,
+          assetId: assignment.assetId,
+          requestedById,
+          returnCondition: data.returnCondition || assignment.asset.condition || AssetCondition.GOOD,
+          employeeComment: data.employeeComment || null,
+          status: AssetReturnRequestStatus.PENDING,
+        },
+        include: {
+          asset: { select: { id: true, assetTag: true, name: true, serialNumber: true } },
+          assignment: true,
+          requestedBy: { select: { id: true, name: true, employeeId: true, department: true } },
+        },
+      });
+
+      await tx.assetAssignment.update({
+        where: { id: data.assignmentId },
+        data: { status: AssignmentStatus.RETURN_PENDING },
+      });
+
+      return returnRequest;
+    });
+  },
+
+  async getEmployeeReturnRequests(requestedById: string) {
+    return prisma.assetReturnRequest.findMany({
+      where: { requestedById },
+      include: {
+        asset: {
+          include: { category: { select: { id: true, name: true, code: true } } },
+        },
+        assignment: true,
+        approvedBy: { select: { id: true, name: true } },
+        rejectedBy: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  },
+
+  async getAllReturnRequests(statusFilter?: AssetReturnRequestStatus) {
+    const where: Prisma.AssetReturnRequestWhereInput = {};
+    if (statusFilter) where.status = statusFilter;
+
+    return prisma.assetReturnRequest.findMany({
+      where,
+      include: {
+        asset: {
+          include: { category: { select: { id: true, name: true, code: true } } },
+        },
+        assignment: true,
+        requestedBy: { select: { id: true, name: true, employeeId: true, department: true, position: { select: { title: true } } } },
+        approvedBy: { select: { id: true, name: true } },
+        rejectedBy: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  },
+
+  async approveReturnRequest(
+    requestId: string,
+    adminId: string,
+    data: { verifiedCondition?: AssetCondition; adminComment?: string }
+  ) {
+    const request = await prisma.assetReturnRequest.findUnique({
+      where: { id: requestId },
+      include: { asset: true, assignment: true, requestedBy: true },
+    });
+
+    if (!request) {
+      throw new AppError(404, "Return request not found", undefined, "REQUEST_NOT_FOUND");
+    }
+
+    if (request.status !== AssetReturnRequestStatus.PENDING) {
+      throw new AppError(
+        400,
+        "This return request has already been processed.",
+        undefined,
+        "ALREADY_PROCESSED"
+      );
+    }
+
+    const verifiedCond = data.verifiedCondition || request.returnCondition || request.asset.condition;
+    const returnDate = new Date();
+
+    return prisma.$transaction(async (tx) => {
+      const updatedRequest = await tx.assetReturnRequest.update({
+        where: { id: requestId },
+        data: {
+          status: AssetReturnRequestStatus.APPROVED,
+          verifiedCondition: verifiedCond,
+          adminComment: data.adminComment || null,
+          approvedById: adminId,
+          approvedAt: returnDate,
+        },
+        include: {
+          asset: { select: { id: true, name: true, assetTag: true } },
+          assignment: true,
+          requestedBy: { select: { id: true, name: true, employeeId: true } },
+          approvedBy: { select: { id: true, name: true } },
+        },
+      });
+
+      await tx.assetAssignment.update({
+        where: { id: request.assignmentId },
+        data: {
+          status: AssignmentStatus.RETURNED,
+          returnedDate: returnDate,
+          conditionOnReturn: verifiedCond,
+          notes: data.adminComment ? `Approved return: ${data.adminComment}` : request.assignment.notes,
+        },
+      });
+
+      await tx.asset.update({
+        where: { id: request.assetId },
+        data: {
+          status: AssetStatus.AVAILABLE,
+          assignedToId: null,
+          assignedDate: null,
+          condition: verifiedCond,
+          notes: data.adminComment ? `Verified return: ${data.adminComment}` : request.asset.notes,
+        },
+      });
+
+      return updatedRequest;
+    });
+  },
+
+  async rejectReturnRequest(
+    requestId: string,
+    adminId: string,
+    data: { rejectedReason: string; adminComment?: string }
+  ) {
+    if (!data.rejectedReason || !data.rejectedReason.trim()) {
+      throw new AppError(400, "Rejection reason is mandatory when rejecting a return request.", undefined, "REASON_REQUIRED");
+    }
+
+    const request = await prisma.assetReturnRequest.findUnique({
+      where: { id: requestId },
+      include: { asset: true, assignment: true, requestedBy: true },
+    });
+
+    if (!request) {
+      throw new AppError(404, "Return request not found", undefined, "REQUEST_NOT_FOUND");
+    }
+
+    if (request.status !== AssetReturnRequestStatus.PENDING) {
+      throw new AppError(
+        400,
+        "This return request has already been processed.",
+        undefined,
+        "ALREADY_PROCESSED"
+      );
+    }
+
+    const rejectDate = new Date();
+
+    return prisma.$transaction(async (tx) => {
+      const updatedRequest = await tx.assetReturnRequest.update({
+        where: { id: requestId },
+        data: {
+          status: AssetReturnRequestStatus.REJECTED,
+          rejectedReason: data.rejectedReason.trim(),
+          adminComment: data.adminComment || null,
+          rejectedById: adminId,
+          rejectedAt: rejectDate,
+        },
+        include: {
+          asset: { select: { id: true, name: true, assetTag: true } },
+          assignment: true,
+          requestedBy: { select: { id: true, name: true, employeeId: true } },
+          rejectedBy: { select: { id: true, name: true } },
+        },
+      });
+
+      await tx.assetAssignment.update({
+        where: { id: request.assignmentId },
+        data: { status: AssignmentStatus.ACTIVE },
+      });
+
+      await tx.asset.update({
+        where: { id: request.assetId },
+        data: { status: AssetStatus.ASSIGNED },
+      });
+
+      return updatedRequest;
     });
   },
 

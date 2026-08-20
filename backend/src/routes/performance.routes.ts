@@ -4,6 +4,8 @@ import {
   createGoal,
   updateGoal,
   updateGoalProgress,
+  reviewGoalCompletion,
+  getGoalHistory,
   deleteGoal,
   getGoals,
   createReview,
@@ -27,6 +29,8 @@ router.get("/goals", getGoals);
 router.post("/goals", createGoal);
 router.patch("/goals/:goalId", updateGoal);
 router.patch("/goals/:goalId/progress", updateGoalProgress);
+router.post("/goals/:goalId/review-completion", authorize(Role.ADMIN), reviewGoalCompletion);
+router.get("/goals/:goalId/history", getGoalHistory);
 router.delete("/goals/:goalId", deleteGoal);
 
 // Reviews

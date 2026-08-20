@@ -26,6 +26,7 @@ import {
   ArrowRight,
   Boxes,
   ShieldAlert,
+  RotateCcw,
 } from "lucide-react";
 
 export default function AdminAssetsPage() {
@@ -128,51 +129,68 @@ export default function AdminAssetsPage() {
           </div>
 
           {/* Quick Actions & Navigation */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
             <Link href="/admin/assets/inventory">
               <Card className="hover:border-blue-500 hover:shadow-md transition-all cursor-pointer">
-                <CardContent className="flex items-center justify-between p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="rounded-lg bg-blue-50 p-3 text-blue-600">
-                      <Laptop className="h-6 w-6" />
+                <CardContent className="flex items-center justify-between p-5">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-blue-50 p-2.5 text-blue-600">
+                      <Laptop className="h-5 w-5" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900">Asset Inventory</h3>
-                      <p className="text-xs text-gray-500">Manage, assign, and return assets</p>
+                      <h3 className="font-semibold text-gray-900 text-sm">Asset Inventory</h3>
+                      <p className="text-xs text-gray-500">Hardware items</p>
                     </div>
                   </div>
-                  <ArrowRight className="h-5 w-5 text-gray-400" />
+                  <ArrowRight className="h-4 w-4 text-gray-400" />
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/admin/assets/return-requests">
+              <Card className="hover:border-amber-500 hover:shadow-md transition-all cursor-pointer">
+                <CardContent className="flex items-center justify-between p-5">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-amber-50 p-2.5 text-amber-600">
+                      <RotateCcw className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900 text-sm">Return Requests</h3>
+                      <p className="text-xs text-gray-500">Physical verification</p>
+                    </div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-gray-400" />
                 </CardContent>
               </Card>
             </Link>
 
             <Link href="/admin/assets/categories">
-              <Card className="hover:border-blue-500 hover:shadow-md transition-all cursor-pointer">
-                <CardContent className="flex items-center justify-between p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="rounded-lg bg-purple-50 p-3 text-purple-600">
-                      <Boxes className="h-6 w-6" />
+              <Card className="hover:border-purple-500 hover:shadow-md transition-all cursor-pointer">
+                <CardContent className="flex items-center justify-between p-5">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-purple-50 p-2.5 text-purple-600">
+                      <Boxes className="h-5 w-5" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900">Asset Categories</h3>
-                      <p className="text-xs text-gray-500">Laptops, Phones, ID Cards, Monitors</p>
+                      <h3 className="font-semibold text-gray-900 text-sm">Asset Categories</h3>
+                      <p className="text-xs text-gray-500">Equipment types</p>
                     </div>
                   </div>
-                  <ArrowRight className="h-5 w-5 text-gray-400" />
+                  <ArrowRight className="h-4 w-4 text-gray-400" />
                 </CardContent>
               </Card>
             </Link>
 
             <Card className="bg-gradient-to-br from-blue-900 to-indigo-800 text-white shadow-md">
-              <CardContent className="flex items-center justify-between p-6">
+              <CardContent className="flex items-center justify-between p-5">
                 <div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-blue-200">Total Asset Valuation</span>
-                  <div className="mt-2 text-2xl font-bold">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-blue-200">Total Asset Valuation</span>
+                  <div className="mt-1 text-xl font-bold">
                     {analytics?.totalValuation.toLocaleString() || 0} ETB
                   </div>
-                  <p className="text-xs text-blue-200">Recorded corporate purchase value</p>
+                  <p className="text-[10px] text-blue-200">Purchase valuation</p>
                 </div>
-                <CreditCard className="h-8 w-8 text-blue-300" />
+                <CreditCard className="h-6 w-6 text-blue-300" />
               </CardContent>
             </Card>
           </div>

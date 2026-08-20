@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { AuthRequest } from "../types";
 import { assetService } from "../services/asset.service";
-import { asyncHandler, sendSuccess } from "../utils/response";
+import { asyncHandler, sendSuccess, AppError } from "../utils/response";
 import {
   createCategorySchema,
   updateCategorySchema,
@@ -9,8 +9,10 @@ import {
   updateAssetSchema,
   assignAssetSchema,
   returnAssetSchema,
+  createReturnRequestSchema,
+  reviewReturnRequestSchema,
 } from "../validators/asset.validator";
-import { AssetStatus } from "@prisma/client";
+import { AssetStatus, AssetReturnRequestStatus } from "@prisma/client";
 
 // --- CATEGORIES ---
 export const createCategory = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -95,6 +97,44 @@ export const getEmployeeAssets = asyncHandler(async (req: AuthRequest, res: Resp
   const targetUserId = req.user?.role === "EMPLOYEE" ? req.user.userId : (req.query.employeeId as string) || req.user!.userId;
   const assets = await assetService.getEmployeeAssets(targetUserId);
   sendSuccess(res, assets, "Employee assigned assets retrieved");
+});
+
+// --- RETURN REQUESTS ---
+export const createReturnRequest = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const validated = createReturnRequestSchema.parse(req.body);
+  const returnRequest = await assetService.createReturnRequest(req.user!.userId, validated);
+  sendSuccess(res, returnRequest, "Asset return request submitted successfully", 201);
+});
+
+export const getEmployeeReturnRequests = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const requests = await assetService.getEmployeeReturnRequests(req.user!.userId);
+  sendSuccess(res, requests, "Employee return requests retrieved");
+});
+
+export const getReturnRequests = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { status } = req.query;
+  const requests = await assetService.getAllReturnRequests(status as AssetReturnRequestStatus | undefined);
+  sendSuccess(res, requests, "All return requests retrieved");
+});
+
+export const approveReturnRequest = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { requestId } = req.params;
+  const validated = reviewReturnRequestSchema.parse(req.body);
+  const request = await assetService.approveReturnRequest(requestId, req.user!.userId, validated);
+  sendSuccess(res, request, "Asset return approved and asset marked available");
+});
+
+export const rejectReturnRequest = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { requestId } = req.params;
+  const validated = reviewReturnRequestSchema.parse(req.body);
+  if (!validated.rejectedReason || !validated.rejectedReason.trim()) {
+    throw new AppError(400, "Rejection reason is mandatory when rejecting a return request.", undefined, "REASON_REQUIRED");
+  }
+  const request = await assetService.rejectReturnRequest(requestId, req.user!.userId, {
+    rejectedReason: validated.rejectedReason,
+    adminComment: validated.adminComment,
+  });
+  sendSuccess(res, request, "Asset return request rejected");
 });
 
 // --- ANALYTICS ---

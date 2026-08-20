@@ -57,3 +57,15 @@ export const returnAssetSchema = z.object({
   targetStatus: z.enum(["AVAILABLE", "UNDER_MAINTENANCE", "DISPOSED", "LOST"]).optional().default("AVAILABLE"),
   notes: z.string().optional(),
 });
+
+export const createReturnRequestSchema = z.object({
+  assignmentId: z.string().min(1, "Assignment ID is required"),
+  returnCondition: z.enum(["NEW", "EXCELLENT", "GOOD", "FAIR", "DAMAGED"]).optional().default("GOOD"),
+  employeeComment: z.string().optional(),
+});
+
+export const reviewReturnRequestSchema = z.object({
+  verifiedCondition: z.enum(["NEW", "EXCELLENT", "GOOD", "FAIR", "DAMAGED"]).optional(),
+  adminComment: z.string().optional(),
+  rejectedReason: z.string().optional(),
+});

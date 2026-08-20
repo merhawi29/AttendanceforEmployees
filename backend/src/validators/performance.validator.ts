@@ -1,12 +1,14 @@
 import { z } from "zod";
 
+const goalStatusEnum = z.enum(["NOT_STARTED", "IN_PROGRESS", "COMPLETION_REQUESTED", "COMPLETED", "CANCELLED"]);
+
 export const createGoalSchema = z.object({
   employeeId: z.string().min(1, "Employee ID is required"),
   title: z.string().min(2, "Goal title must be at least 2 characters").max(255),
   description: z.string().optional(),
   targetDate: z.string().min(1, "Target date is required"),
   progressPercentage: z.number().min(0).max(100).optional().default(0),
-  status: z.enum(["NOT_STARTED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional().default("NOT_STARTED"),
+  status: goalStatusEnum.optional().default("NOT_STARTED"),
 });
 
 export const updateGoalSchema = z.object({
@@ -14,12 +16,18 @@ export const updateGoalSchema = z.object({
   description: z.string().optional(),
   targetDate: z.string().optional(),
   progressPercentage: z.number().min(0).max(100).optional(),
-  status: z.enum(["NOT_STARTED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
+  status: goalStatusEnum.optional(),
 });
 
 export const updateGoalProgressSchema = z.object({
   progressPercentage: z.number().min(0, "Progress cannot be negative").max(100, "Progress cannot exceed 100%"),
-  status: z.enum(["NOT_STARTED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
+  note: z.string().optional(),
+  status: goalStatusEnum.optional(),
+});
+
+export const reviewGoalCompletionSchema = z.object({
+  action: z.enum(["APPROVE", "REJECT"]),
+  feedback: z.string().optional(),
 });
 
 export const createReviewSchema = z.object({

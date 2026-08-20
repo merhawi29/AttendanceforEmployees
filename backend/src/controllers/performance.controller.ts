@@ -6,6 +6,7 @@ import {
   createGoalSchema,
   updateGoalSchema,
   updateGoalProgressSchema,
+  reviewGoalCompletionSchema,
   createReviewSchema,
   updateReviewSchema,
 } from "../validators/performance.validator";
@@ -36,11 +37,30 @@ export const updateGoalProgress = asyncHandler(async (req: AuthRequest, res: Res
   const goal = await performanceService.updateGoalProgress(
     goalId,
     validated.progressPercentage,
-    validated.status,
+    validated.note,
     req.user?.userId,
     req.user?.role
   );
   sendSuccess(res, goal, "Goal progress updated successfully");
+});
+
+export const reviewGoalCompletion = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { goalId } = req.params;
+  const validated = reviewGoalCompletionSchema.parse(req.body);
+  const goal = await performanceService.reviewGoalCompletion(
+    goalId,
+    validated.action,
+    validated.feedback,
+    req.user?.userId,
+    req.user?.role
+  );
+  sendSuccess(res, goal, `Goal completion request ${validated.action === "APPROVE" ? "approved" : "rejected"} successfully`);
+});
+
+export const getGoalHistory = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { goalId } = req.params;
+  const goal = await performanceService.getGoalById(goalId);
+  sendSuccess(res, goal.progressHistories, "Goal progress history retrieved");
 });
 
 export const deleteGoal = asyncHandler(async (req: AuthRequest, res: Response) => {

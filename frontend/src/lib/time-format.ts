@@ -1,27 +1,51 @@
-export function normalizeTimeValue(value: string): string {
+export function parseTimeToHoursMinutes(value: string): { hour: number; minute: number } | null {
+  if (!value) return null;
   const trimmed = value.trim();
-  const match = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
-  if (!match) {
-    return trimmed;
+
+  // Match 12-hour AM/PM format (e.g., "05:30 PM", "5:30PM", "12:30 AM")
+  const ampmMatch = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)$/i);
+  if (ampmMatch) {
+    let hour = parseInt(ampmMatch[1], 10);
+    const minute = parseInt(ampmMatch[2], 10);
+    const period = ampmMatch[3].toUpperCase();
+
+    if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return null;
+
+    if (period === "PM" && hour < 12) hour += 12;
+    if (period === "AM" && hour === 12) hour = 0;
+
+    return { hour, minute };
   }
 
-  const hour = Number(match[1]);
-  const minute = Number(match[2]);
+  // Match 24-hour format (e.g., "17:30", "06:30", "06:30:00")
+  const hhmmMatch = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (hhmmMatch) {
+    const hour = parseInt(hhmmMatch[1], 10);
+    const minute = parseInt(hhmmMatch[2], 10);
 
-  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-    return trimmed;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+
+    return { hour, minute };
   }
 
-  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  return null;
 }
 
-export function formatToAmPm(timeStr: string): string {
-  const normalized = normalizeTimeValue(timeStr);
-  if (!/^\d{2}:\d{2}$/.test(normalized)) return "—";
+export function normalizeTimeValue(value: string): string {
+  const parsed = parseTimeToHoursMinutes(value);
+  if (!parsed) {
+    return value ? value.trim() : "";
+  }
+  return `${String(parsed.hour).padStart(2, "0")}:${String(parsed.minute).padStart(2, "0")}`;
+}
 
-  const [hourStr, minuteStr] = normalized.split(":");
-  const hour = parseInt(hourStr, 10);
-  const ampm = hour >= 12 ? "PM" : "AM";
-  const h = hour % 12 || 12;
-  return `${String(h).padStart(2, "0")}:${minuteStr} ${ampm}`;
+export function formatToAmPm(timeStr: string | null | undefined): string {
+  if (!timeStr) return "—";
+  const parsed = parseTimeToHoursMinutes(timeStr);
+  if (!parsed) return timeStr;
+
+  const ampm = parsed.hour >= 12 ? "PM" : "AM";
+  const h = parsed.hour % 12 || 12;
+  const m = String(parsed.minute).padStart(2, "0");
+  return `${String(h).padStart(2, "0")}:${m} ${ampm}`;
 }

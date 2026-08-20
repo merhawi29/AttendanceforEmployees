@@ -4,6 +4,7 @@ export interface EatDateTimeParts {
   day: number;
   hour: number;
   minute: number;
+  second: number;
 }
 
 export const getEatParts = (now: Date = new Date()): EatDateTimeParts => {
@@ -25,6 +26,7 @@ export const getEatParts = (now: Date = new Date()): EatDateTimeParts => {
     day: getPart("day"),
     hour: getPart("hour"),
     minute: getPart("minute"),
+    second: getPart("second"),
   };
 };
 
@@ -33,9 +35,19 @@ export const getMinutesSinceMidnightEat = (now: Date = new Date()): number => {
   return parts.hour * 60 + parts.minute;
 };
 
+export const getSecondsSinceMidnightEat = (now: Date = new Date()): number => {
+  const parts = getEatParts(now);
+  return parts.hour * 3600 + parts.minute * 60 + parts.second;
+};
+
 export const getDateMinutesEat = (date: Date): number => {
   const parts = getEatParts(date);
   return parts.hour * 60 + parts.minute;
+};
+
+export const getDateSecondsEat = (date: Date): number => {
+  const parts = getEatParts(date);
+  return parts.hour * 3600 + parts.minute * 60 + parts.second;
 };
 
 export const getTodayGregorianDate = (now: Date = new Date()): Date => {
@@ -74,6 +86,9 @@ export const formatEatTime = (now: Date = new Date()): string => {
 };
 
 export const toMinutes = (hour: number, minute: number): number => hour * 60 + minute;
+
+export const toSeconds = (hour: number, minute: number, second: number = 0): number =>
+  hour * 3600 + minute * 60 + second;
 
 export const formatTimeLabel = (hour: number, minute: number): string => {
   const ampm = hour >= 12 ? "PM" : "AM";

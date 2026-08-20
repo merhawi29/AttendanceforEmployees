@@ -14,6 +14,11 @@ import {
   returnAsset,
   getEmployeeAssets,
   getAssetAnalytics,
+  createReturnRequest,
+  getEmployeeReturnRequests,
+  getReturnRequests,
+  approveReturnRequest,
+  rejectReturnRequest,
 } from "../controllers/asset.controller";
 import { Role } from "../types";
 
@@ -21,8 +26,10 @@ const router = Router();
 
 router.use(authenticate);
 
-// Employee self-service view
+// Employee self-service views & requests
 router.get("/my-assets", getEmployeeAssets);
+router.post("/return-requests", createReturnRequest);
+router.get("/return-requests/my", getEmployeeReturnRequests);
 
 // Admin Management Routes
 router.use(authorize(Role.ADMIN));
@@ -43,6 +50,11 @@ router.delete("/:assetId", deleteAsset);
 // Assignment & Return
 router.post("/assign", assignAsset);
 router.post("/:assetId/return", returnAsset);
+
+// Admin Return Requests Review
+router.get("/return-requests", getReturnRequests);
+router.post("/return-requests/:requestId/approve", approveReturnRequest);
+router.post("/return-requests/:requestId/reject", rejectReturnRequest);
 
 // Analytics
 router.get("/analytics/dashboard", getAssetAnalytics);

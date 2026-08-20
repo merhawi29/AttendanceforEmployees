@@ -1,6 +1,26 @@
 export type PerformanceRating = "OUTSTANDING" | "VERY_GOOD" | "GOOD" | "FAIR" | "POOR";
 
-export type GoalStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+export type GoalStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETION_REQUESTED" | "COMPLETED" | "CANCELLED";
+
+export type GoalProgressAction = "PROGRESS_UPDATE" | "COMPLETION_REQUESTED" | "APPROVED" | "REJECTED";
+
+export interface GoalProgressHistory {
+  id: string;
+  goalId: string;
+  submittedById: string;
+  previousProgress: number;
+  newProgress: number;
+  note?: string | null;
+  action: GoalProgressAction;
+  feedback?: string | null;
+  createdAt: string;
+  submittedBy?: {
+    id: string;
+    name: string;
+    employeeId?: string;
+    role?: string;
+  };
+}
 
 export interface PerformanceGoal {
   id: string;
@@ -19,6 +39,7 @@ export interface PerformanceGoal {
     department?: string | null;
     role?: string;
   };
+  progressHistories?: GoalProgressHistory[];
 }
 
 export interface PerformanceReview {

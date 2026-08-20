@@ -30,7 +30,11 @@ export default function EmployeePerformancePage() {
   // Update Progress State
   const [selectedGoal, setSelectedGoal] = useState<PerformanceGoal | null>(null);
   const [newProgress, setNewProgress] = useState(0);
+  const [progressNote, setProgressNote] = useState("");
   const [updating, setUpdating] = useState(false);
+
+  // View Audit History Modal
+  const [viewHistoryGoal, setViewHistoryGoal] = useState<PerformanceGoal | null>(null);
 
   // New Self Goal State
   const [isAddGoalOpen, setIsAddGoalOpen] = useState(false);
@@ -71,10 +75,11 @@ export default function EmployeePerformancePage() {
         method: "PATCH",
         body: JSON.stringify({
           progressPercentage: newProgress,
-          status: newProgress === 100 ? "COMPLETED" : newProgress > 0 ? "IN_PROGRESS" : "NOT_STARTED",
+          note: progressNote,
         }),
       });
       setSelectedGoal(null);
+      setProgressNote("");
       fetchData();
     } catch (err) {
       console.error("Failed to update progress", err);
@@ -200,34 +205,59 @@ export default function EmployeePerformancePage() {
                 {goals.map((goal) => (
                   <Card key={goal.id} className="hover:shadow-md transition-shadow">
                     <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <Badge
                           className={
                             goal.status === "COMPLETED"
                               ? "bg-emerald-100 text-emerald-800"
+                              : goal.status === "COMPLETION_REQUESTED"
+                              ? "bg-amber-100 text-amber-800 border border-amber-300"
                               : goal.status === "IN_PROGRESS"
                               ? "bg-blue-100 text-blue-800"
                               : "bg-gray-100 text-gray-700"
                           }
                         >
-                          {goal.status.replace("_", " ")}
+                          {goal.status === "COMPLETION_REQUESTED" ? "Completion Requested" : goal.status.replace("_", " ")}
                         </Badge>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedGoal(goal);
-                            setNewProgress(goal.progressPercentage);
-                          }}
-                          className="h-7 text-xs"
-                        >
-                          Update Progress
-                        </Button>
+
+                        <div className="flex items-center gap-1.5">
+                          {goal.progressHistories && goal.progressHistories.length > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setViewHistoryGoal(goal)}
+                              className="h-7 text-xs text-slate-600 hover:text-slate-900"
+                            >
+                              History ({goal.progressHistories.length})
+                            </Button>
+                          )}
+
+                          {goal.status !== "COMPLETED" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedGoal(goal);
+                                setNewProgress(goal.progressPercentage);
+                                setProgressNote("");
+                              }}
+                              className="h-7 text-xs font-semibold"
+                            >
+                              Update Progress
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       <CardTitle className="text-base mt-2">{goal.title}</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       {goal.description && <p className="text-xs text-gray-600">{goal.description}</p>}
+
+                      {goal.status === "COMPLETION_REQUESTED" && (
+                        <div className="rounded-md bg-amber-50 p-2.5 text-xs text-amber-800 border border-amber-200 font-medium">
+                          Completion requested — awaiting manager review.
+                        </div>
+                      )}
 
                       <div className="space-y-1">
                         <div className="flex justify-between text-xs">
@@ -236,7 +266,9 @@ export default function EmployeePerformancePage() {
                         </div>
                         <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
                           <div
-                            className="h-full bg-blue-600 rounded-full transition-all"
+                            className={`h-full rounded-full transition-all ${
+                              goal.status === "COMPLETED" ? "bg-emerald-600" : goal.status === "COMPLETION_REQUESTED" ? "bg-amber-500" : "bg-blue-600"
+                            }`}
                             style={{ width: `${goal.progressPercentage}%` }}
                           />
                         </div>
@@ -255,7 +287,7 @@ export default function EmployeePerformancePage() {
             ) : (
               <Card>
                 <CardContent className="py-8 text-center text-sm text-gray-500">
-                  No active goals assigned yet. Click "Add Personal Goal" to create one.
+                  No performance goals recorded yet.
                 </CardContent>
               </Card>
             )}

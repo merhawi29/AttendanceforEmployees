@@ -38,6 +38,9 @@ model User {
   conductedAssetAssignments   AssetAssignment[]    @relation("AssignerAssetAssignments")
   assetAssignments            AssetAssignment[]    @relation("EmployeeAssetAssignments")
   assignedAssets              Asset[]              @relation("UserAssignedAssets")
+  requestedReturnRequests     AssetReturnRequest[] @relation("AssetReturnRequestRequester")
+  approvedReturnRequests      AssetReturnRequest[] @relation("AssetReturnRequestApprover")
+  rejectedReturnRequests      AssetReturnRequest[] @relation("AssetReturnRequestRejecter")
   attendances                 Attendance[]
   headedDepartment            Department?          @relation("DepartmentHead")
   documents                   Document[]           @relation("UserDocuments")
@@ -53,6 +56,7 @@ model User {
   overtimeRequests            OvertimeRequest[]    @relation("EmployeeOvertimeRequests")
   payrollRecords              PayrollRecord[]
   performanceGoals            PerformanceGoal[]    @relation("EmployeePerformanceGoals")
+  goalProgressHistories       GoalProgressHistory[] @relation("UserGoalProgressHistories")
   performanceReviews          PerformanceReview[]  @relation("EmployeePerformanceReviews")
   givenPerformanceReviews     PerformanceReview[]  @relation("ReviewerPerformanceReviews")
   refreshTokens               RefreshToken[]
@@ -370,21 +374,41 @@ model PerformanceReview {
 }
 
 model PerformanceGoal {
-  id                 String     @id @default(cuid())
-  employeeId         String     @map("employee_id")
-  title              String     @db.VarChar(255)
-  description        String?    @db.Text
-  targetDate         DateTime   @map("target_date") @db.Date
-  progressPercentage Int        @default(0) @map("progress_percentage")
-  status             GoalStatus @default(NOT_STARTED)
-  createdAt          DateTime   @default(now()) @map("created_at")
-  updatedAt          DateTime   @updatedAt @map("updated_at")
-  employee           User       @relation("EmployeePerformanceGoals", fields: [employeeId], references: [id], onDelete: Cascade)
+  id                 String                @id @default(cuid())
+  employeeId         String                @map("employee_id")
+  title              String                @db.VarChar(255)
+  description        String?               @db.Text
+  targetDate         DateTime              @map("target_date") @db.Date
+  progressPercentage Int                   @default(0) @map("progress_percentage")
+  status             GoalStatus            @default(NOT_STARTED)
+  createdAt          DateTime              @default(now()) @map("created_at")
+  updatedAt          DateTime              @updatedAt @map("updated_at")
+  employee           User                  @relation("EmployeePerformanceGoals", fields: [employeeId], references: [id], onDelete: Cascade)
+  progressHistories  GoalProgressHistory[]
 
   @@index([employeeId])
   @@index([status])
   @@index([targetDate])
   @@map("performance_goals")
+}
+
+model GoalProgressHistory {
+  id               String             @id @default(cuid())
+  goalId           String             @map("goal_id")
+  submittedById    String             @map("submitted_by_id")
+  previousProgress Int                @map("previous_progress")
+  newProgress      Int                @map("new_progress")
+  note             String?            @db.Text
+  action           GoalProgressAction
+  feedback         String?            @db.Text
+  createdAt        DateTime           @default(now()) @map("created_at")
+
+  goal             PerformanceGoal    @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  submittedBy      User               @relation("UserGoalProgressHistories", fields: [submittedById], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
+  @@index([submittedById])
+  @@map("goal_progress_histories")
 }
 
 model JobPosting {
@@ -486,6 +510,7 @@ model Asset {
   createdAt      DateTime          @default(now()) @map("created_at")
   updatedAt      DateTime          @updatedAt @map("updated_at")
   assignments    AssetAssignment[]
+  returnRequests AssetReturnRequest[]
   assignedTo     User?             @relation("UserAssignedAssets", fields: [assignedToId], references: [id])
   category       AssetCategory     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
@@ -496,27 +521,60 @@ model Asset {
 }
 
 model AssetAssignment {
-  id                String           @id @default(cuid())
-  assetId           String           @map("asset_id")
-  employeeId        String           @map("employee_id")
-  assignedById      String           @map("assigned_by_id")
-  assignedDate      DateTime         @default(now()) @map("assigned_date")
-  returnedDate      DateTime?        @map("returned_date")
-  conditionOnAssign AssetCondition   @default(EXCELLENT) @map("condition_on_assign")
-  conditionOnReturn AssetCondition?  @map("condition_on_return")
-  status            AssignmentStatus @default(ACTIVE)
-  notes             String?          @db.Text
-  createdAt         DateTime         @default(now()) @map("created_at")
-  updatedAt         DateTime         @updatedAt @map("updated_at")
-  asset             Asset            @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  assigner          User             @relation("AssignerAssetAssignments", fields: [assignedById], references: [id], onDelete: Cascade)
-  employee          User             @relation("EmployeeAssetAssignments", fields: [employeeId], references: [id], onDelete: Cascade)
+  id                String               @id @default(cuid())
+  assetId           String               @map("asset_id")
+  employeeId        String               @map("employee_id")
+  assignedById      String               @map("assigned_by_id")
+  assignedDate      DateTime             @default(now()) @map("assigned_date")
+  returnedDate      DateTime?            @map("returned_date")
+  conditionOnAssign AssetCondition       @default(EXCELLENT) @map("condition_on_assign")
+  conditionOnReturn AssetCondition?      @map("condition_on_return")
+  status            AssignmentStatus     @default(ACTIVE)
+  notes             String?              @db.Text
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+  asset             Asset                @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  assigner          User                 @relation("AssignerAssetAssignments", fields: [assignedById], references: [id], onDelete: Cascade)
+  employee          User                 @relation("EmployeeAssetAssignments", fields: [employeeId], references: [id], onDelete: Cascade)
+  returnRequests    AssetReturnRequest[]
 
   @@index([assetId])
   @@index([employeeId])
   @@index([status])
   @@index([assignedById], map: "asset_assignments_assigned_by_id_fkey")
   @@map("asset_assignments")
+}
+
+model AssetReturnRequest {
+  id                String                   @id @default(cuid())
+  assignmentId      String                   @map("assignment_id")
+  assetId           String                   @map("asset_id")
+  requestedById     String                   @map("requested_by_id")
+  requestedAt       DateTime                 @default(now()) @map("requested_at")
+  returnCondition   AssetCondition           @default(GOOD) @map("return_condition")
+  employeeComment   String?                  @db.Text @map("employee_comment")
+  status            AssetReturnRequestStatus @default(PENDING)
+  verifiedCondition AssetCondition?          @map("verified_condition")
+  adminComment      String?                  @db.Text @map("admin_comment")
+  approvedById      String?                  @map("approved_by_id")
+  approvedAt        DateTime?                @map("approved_at")
+  rejectedById      String?                  @map("rejected_by_id")
+  rejectedAt        DateTime?                @map("rejected_at")
+  rejectedReason    String?                  @db.Text @map("rejected_reason")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+
+  assignment        AssetAssignment          @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  asset             Asset                    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  requestedBy       User                     @relation("AssetReturnRequestRequester", fields: [requestedById], references: [id], onDelete: Cascade)
+  approvedBy        User?                    @relation("AssetReturnRequestApprover", fields: [approvedById], references: [id])
+  rejectedBy        User?                    @relation("AssetReturnRequestRejecter", fields: [rejectedById], references: [id])
+
+  @@index([assignmentId])
+  @@index([assetId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("asset_return_requests")
 }
 
 model TrainingProgram {
@@ -705,8 +763,16 @@ enum PerformanceRating {
 enum GoalStatus {
   NOT_STARTED
   IN_PROGRESS
+  COMPLETION_REQUESTED
   COMPLETED
   CANCELLED
+}
+
+enum GoalProgressAction {
+  PROGRESS_UPDATE
+  COMPLETION_REQUESTED
+  APPROVED
+  REJECTED
 }
 
 enum JobStatus {
@@ -758,7 +824,14 @@ enum AssetCondition {
 
 enum AssignmentStatus {
   ACTIVE
+  RETURN_PENDING
   RETURNED
+}
+
+enum AssetReturnRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum TrainingStatus {

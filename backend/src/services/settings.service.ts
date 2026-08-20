@@ -11,10 +11,10 @@ export interface SystemSettings {
 }
 
 const DEFAULT_SETTINGS: SystemSettings = {
-  morningCheckInStart: "07:30",
+  morningCheckInStart: "06:30",
   morningCheckInEnd: "08:45",
   lunchStartTime: "12:30",
-  lunchReturnDeadline: "14:30",
+  lunchReturnDeadline: "13:30",
   workEndTime: "17:30",
   gracePeriodMinutes: 15,
 };
@@ -49,19 +49,42 @@ function normalizeSettings(data: Partial<SystemSettings>): SystemSettings {
 
 async function ensureDefaultSettings(): Promise<void> {
   const count = await prisma.systemSetting.count();
-  if (count > 0) {
-    return;
-  }
+  if (count === 0) {
+    for (const key of SETTING_KEYS) {
+      const value =
+        key === "gracePeriodMinutes"
+          ? String(DEFAULT_SETTINGS.gracePeriodMinutes)
+          : String(DEFAULT_SETTINGS[key]);
 
-  for (const key of SETTING_KEYS) {
-    const value =
-      key === "gracePeriodMinutes"
-        ? String(DEFAULT_SETTINGS.gracePeriodMinutes)
-        : String(DEFAULT_SETTINGS[key]);
+      await prisma.systemSetting.create({
+        data: { key, value },
+      });
+    }
+  } else {
+    // Normalize and clean up legacy DB settings values
+    const settingsList = await prisma.systemSetting.findMany();
+    for (const s of settingsList) {
+      if (s.key === "gracePeriodMinutes") continue;
+      const normalized = normalizeTimeValue(s.value);
+      let corrected = normalized;
 
-    await prisma.systemSetting.create({
-      data: { key, value },
-    });
+      if (s.key === "morningCheckInStart" && (normalized === "07:30" || s.value.includes("07:30"))) {
+        corrected = "06:30";
+      } else if (s.key === "lunchStartTime" && (normalized === "00:30" || s.value.includes("12:30 AM"))) {
+        corrected = "12:30";
+      } else if (s.key === "lunchReturnDeadline" && (normalized === "14:30" || s.value.includes("14:30") || s.value.includes("2:30"))) {
+        corrected = "13:30";
+      } else if (s.key === "workEndTime" && (normalized === "05:30" || s.value.includes("5:30"))) {
+        corrected = "17:30";
+      }
+
+      if (corrected !== s.value) {
+        await prisma.systemSetting.update({
+          where: { key: s.key },
+          data: { value: corrected },
+        });
+      }
+    }
   }
 }
 

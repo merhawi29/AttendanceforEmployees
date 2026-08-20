@@ -1,5 +1,5 @@
 import prisma from "../config/database";
-import { PerformanceRating, GoalStatus, Prisma } from "@prisma/client";
+import { PerformanceRating, GoalStatus, GoalProgressAction, Prisma } from "@prisma/client";
 import { AppError } from "../utils/response";
 
 export interface CreateGoalInput {
@@ -17,6 +17,7 @@ export interface UpdateGoalInput {
   targetDate?: string;
   progressPercentage?: number;
   status?: GoalStatus;
+  note?: string;
 }
 
 export interface CreateReviewInput {
@@ -59,15 +60,17 @@ export const performanceService = {
       throw new AppError(404, "Employee not found", undefined, "USER_NOT_FOUND");
     }
 
-    const progress = data.progressPercentage ?? 0;
+    const progress = Math.max(0, Math.min(100, data.progressPercentage ?? 0));
     let status = data.status || GoalStatus.NOT_STARTED;
-    if (progress === 100) {
-      status = GoalStatus.COMPLETED;
+
+    // Direct creation at 100% via admin/manager sets COMPLETED, but status is sanitized if invalid
+    if (progress === 100 && status !== GoalStatus.COMPLETED) {
+      status = GoalStatus.COMPLETION_REQUESTED;
     } else if (progress > 0 && status === GoalStatus.NOT_STARTED) {
       status = GoalStatus.IN_PROGRESS;
     }
 
-    return prisma.performanceGoal.create({
+    const goal = await prisma.performanceGoal.create({
       data: {
         employeeId: data.employeeId,
         title: data.title,
@@ -80,8 +83,29 @@ export const performanceService = {
         employee: {
           select: { id: true, name: true, employeeId: true, department: true, role: true },
         },
+        progressHistories: {
+          include: {
+            submittedBy: { select: { id: true, name: true, role: true, employeeId: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        },
       },
     });
+
+    if (progress > 0) {
+      await prisma.goalProgressHistory.create({
+        data: {
+          goalId: goal.id,
+          submittedById: data.employeeId,
+          previousProgress: 0,
+          newProgress: progress,
+          note: "Initial goal creation",
+          action: progress === 100 ? GoalProgressAction.COMPLETION_REQUESTED : GoalProgressAction.PROGRESS_UPDATE,
+        },
+      });
+    }
+
+    return this.getGoalById(goal.id);
   },
 
   async updateGoal(goalId: string, data: UpdateGoalInput, currentUserId?: string, userRole?: string) {
@@ -90,8 +114,14 @@ export const performanceService = {
       throw new AppError(404, "Performance goal not found", undefined, "GOAL_NOT_FOUND");
     }
 
-    if (userRole === "EMPLOYEE" && goal.employeeId !== currentUserId) {
-      throw new AppError(403, "You can only update your own goals", undefined, "FORBIDDEN");
+    if (userRole === "EMPLOYEE") {
+      if (goal.employeeId !== currentUserId) {
+        throw new AppError(403, "You can only update your own goals", undefined, "FORBIDDEN");
+      }
+      // Employees cannot edit title, description, or targetDate configuration
+      if (data.title !== undefined || data.description !== undefined || data.targetDate !== undefined) {
+        throw new AppError(403, "Employees are not allowed to edit goal configuration (title, description, target date)", undefined, "FORBIDDEN");
+      }
     }
 
     const updateData: Prisma.PerformanceGoalUpdateInput = {};
@@ -99,32 +129,157 @@ export const performanceService = {
     if (data.description !== undefined) updateData.description = data.description;
     if (data.targetDate !== undefined) updateData.targetDate = new Date(data.targetDate);
 
-    let progress = data.progressPercentage ?? goal.progressPercentage;
-    if (data.progressPercentage !== undefined) {
-      updateData.progressPercentage = data.progressPercentage;
-    }
+    const prevProgress = goal.progressPercentage;
+    let newProgress = data.progressPercentage !== undefined ? data.progressPercentage : prevProgress;
+    newProgress = Math.max(0, Math.min(100, newProgress));
+    updateData.progressPercentage = newProgress;
 
     let status = data.status ?? goal.status;
-    if (progress === 100) {
-      status = GoalStatus.COMPLETED;
-    } else if (progress > 0 && status === GoalStatus.NOT_STARTED) {
-      status = GoalStatus.IN_PROGRESS;
+    let historyAction: GoalProgressAction = GoalProgressAction.PROGRESS_UPDATE;
+
+    if (userRole === "EMPLOYEE") {
+      // Employees CANNOT mark a goal COMPLETED directly
+      if (newProgress === 100) {
+        status = GoalStatus.COMPLETION_REQUESTED;
+        historyAction = GoalProgressAction.COMPLETION_REQUESTED;
+      } else if (newProgress > 0 && (status === GoalStatus.NOT_STARTED || status === GoalStatus.COMPLETION_REQUESTED)) {
+        status = GoalStatus.IN_PROGRESS;
+      } else if (data.status === GoalStatus.COMPLETED) {
+        throw new AppError(403, "Employees cannot directly mark a goal as COMPLETED. Submit 100% to request completion.", undefined, "FORBIDDEN");
+      }
+    } else {
+      // Managers / Admins
+      if (newProgress === 100 && status !== GoalStatus.COMPLETED) {
+        status = GoalStatus.COMPLETED;
+      } else if (newProgress > 0 && status === GoalStatus.NOT_STARTED) {
+        status = GoalStatus.IN_PROGRESS;
+      }
     }
+
     updateData.status = status;
 
-    return prisma.performanceGoal.update({
+    const updatedGoal = await prisma.performanceGoal.update({
       where: { id: goalId },
       data: updateData,
+    });
+
+    if (data.progressPercentage !== undefined || data.note) {
+      await prisma.goalProgressHistory.create({
+        data: {
+          goalId,
+          submittedById: currentUserId || goal.employeeId,
+          previousProgress: prevProgress,
+          newProgress,
+          note: data.note || null,
+          action: historyAction,
+        },
+      });
+    }
+
+    return this.getGoalById(goalId);
+  },
+
+  async updateGoalProgress(
+    goalId: string,
+    progressPercentage: number,
+    note?: string,
+    currentUserId?: string,
+    userRole?: string
+  ) {
+    if (progressPercentage < 0 || progressPercentage > 100) {
+      throw new AppError(400, "Progress percentage must be between 0 and 100", undefined, "VALIDATION_ERROR");
+    }
+
+    return this.updateGoal(
+      goalId,
+      { progressPercentage, note },
+      currentUserId,
+      userRole
+    );
+  },
+
+  async reviewGoalCompletion(
+    goalId: string,
+    action: "APPROVE" | "REJECT",
+    feedback?: string,
+    reviewerId?: string,
+    reviewerRole?: string
+  ) {
+    if (!reviewerId || (reviewerRole !== "ADMIN" && reviewerRole !== "MANAGER" && reviewerRole !== "HR_MANAGER")) {
+      throw new AppError(403, "Only Managers and Admins can review goal completion requests", undefined, "FORBIDDEN");
+    }
+
+    const goal = await prisma.performanceGoal.findUnique({
+      where: { id: goalId },
       include: {
         employee: {
-          select: { id: true, name: true, employeeId: true, department: true, role: true },
+          select: { id: true, name: true, employeeId: true, department: true, departmentId: true, managerId: true },
         },
       },
     });
-  },
 
-  async updateGoalProgress(goalId: string, progressPercentage: number, status?: GoalStatus, currentUserId?: string, userRole?: string) {
-    return this.updateGoal(goalId, { progressPercentage, status }, currentUserId, userRole);
+    if (!goal) {
+      throw new AppError(404, "Performance goal not found", undefined, "GOAL_NOT_FOUND");
+    }
+
+    // Verify Manager Authorization for the employee's goal
+    if (reviewerRole === "MANAGER") {
+      const reviewer = await prisma.user.findUnique({
+        where: { id: reviewerId },
+        select: { id: true, department: true, departmentId: true },
+      });
+
+      const isDirectManager = goal.employee.managerId === reviewerId;
+      const isSameDepartment =
+        (reviewer?.departmentId && goal.employee.departmentId === reviewer.departmentId) ||
+        (reviewer?.department && goal.employee.department === reviewer.department);
+
+      if (!isDirectManager && !isSameDepartment) {
+        throw new AppError(
+          403,
+          "You are only authorized to review goal completion requests for employees in your department or direct management line.",
+          undefined,
+          "FORBIDDEN"
+        );
+      }
+    }
+
+    const prevProgress = goal.progressPercentage;
+    let nextStatus: GoalStatus;
+    let nextProgress: number;
+    let historyAction: GoalProgressAction;
+
+    if (action === "APPROVE") {
+      nextStatus = GoalStatus.COMPLETED;
+      nextProgress = 100;
+      historyAction = GoalProgressAction.APPROVED;
+    } else {
+      nextStatus = GoalStatus.IN_PROGRESS;
+      nextProgress = goal.progressPercentage;
+      historyAction = GoalProgressAction.REJECTED;
+    }
+
+    await prisma.performanceGoal.update({
+      where: { id: goalId },
+      data: {
+        status: nextStatus,
+        progressPercentage: nextProgress,
+      },
+    });
+
+    await prisma.goalProgressHistory.create({
+      data: {
+        goalId,
+        submittedById: reviewerId,
+        previousProgress: prevProgress,
+        newProgress: nextProgress,
+        note: null,
+        action: historyAction,
+        feedback: feedback || null,
+      },
+    });
+
+    return this.getGoalById(goalId);
   },
 
   async deleteGoal(goalId: string, currentUserId?: string, userRole?: string) {
@@ -138,6 +293,29 @@ export const performanceService = {
     }
 
     return prisma.performanceGoal.delete({ where: { id: goalId } });
+  },
+
+  async getGoalById(goalId: string) {
+    const goal = await prisma.performanceGoal.findUnique({
+      where: { id: goalId },
+      include: {
+        employee: {
+          select: { id: true, name: true, employeeId: true, department: true, role: true },
+        },
+        progressHistories: {
+          include: {
+            submittedBy: { select: { id: true, name: true, role: true, employeeId: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        },
+      },
+    });
+
+    if (!goal) {
+      throw new AppError(404, "Performance goal not found", undefined, "GOAL_NOT_FOUND");
+    }
+
+    return goal;
   },
 
   async getGoals(query: { employeeId?: string; status?: GoalStatus; department?: string; search?: string }) {
@@ -168,6 +346,12 @@ export const performanceService = {
       include: {
         employee: {
           select: { id: true, name: true, employeeId: true, department: true, role: true },
+        },
+        progressHistories: {
+          include: {
+            submittedBy: { select: { id: true, name: true, role: true, employeeId: true } },
+          },
+          orderBy: { createdAt: "desc" },
         },
       },
       orderBy: { targetDate: "asc" },

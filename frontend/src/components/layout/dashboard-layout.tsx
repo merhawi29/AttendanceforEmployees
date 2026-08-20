@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { useTheme } from "@/contexts/theme-context";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,8 @@ import {
   Search,
   Command,
   TrendingUp,
+  ArrowLeft,
+  RotateCcw,
 } from "lucide-react";
 
 const adminLinks = [
@@ -49,7 +51,8 @@ const adminLinks = [
   { href: "/admin/positions", label: "Positions", icon: Briefcase },
   { href: "/admin/notifications", label: "Notifications", icon: Bell },
   { href: "/admin/documents", label: "Documents", icon: FolderKanban },
-  { href: "/admin/assets", label: "Assets", icon: Laptop },
+  { href: "/admin/assets", label: "Assets Inventory", icon: Laptop },
+  { href: "/admin/assets/return-requests", label: "Asset Return Requests", icon: RotateCcw },
   { href: "/admin/training", label: "Training", icon: GraduationCap },
   { href: "/admin/ats", label: "Recruitment / ATS", icon: UserPlus },
   { href: "/admin/holidays", label: "Holidays", icon: PartyPopper },
@@ -81,6 +84,7 @@ const employeeLinks = [
 ];
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const { user, logout, isAdmin } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const pathname = usePathname();
@@ -92,6 +96,14 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  const handleBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push(isAdmin ? "/admin" : "/employee");
+    }
+  };
 
   useEffect(() => {
     const savedCollapse = localStorage.getItem("attendpro_sidebar_collapsed");
@@ -153,6 +165,18 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               className="md:hidden p-2 text-slate-600 dark:text-slate-300"
             >
               {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
+
+            {/* Quick Back Navigation Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBack}
+              className="h-8 px-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all rounded-lg cursor-pointer"
+              title="Go back to previous page"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Back</span>
             </Button>
 
             <div className="rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-600 p-2 text-white shadow-md shadow-blue-500/10">
@@ -323,7 +347,20 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        <main className="min-w-0 flex-1">{children}</main>
+        <main className="min-w-0 flex-1 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBack}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer rounded-xl h-8 px-3"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span>Back</span>
+            </Button>
+          </div>
+          {children}
+        </main>
       </div>
     </div>
   );

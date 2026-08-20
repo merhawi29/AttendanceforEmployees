@@ -28,10 +28,10 @@ interface AttendancePanelProps {
 interface SystemSettings extends AttendanceSettings {}
 
 const DEFAULT_SETTINGS: SystemSettings = {
-  morningCheckInStart: "07:30",
+  morningCheckInStart: "06:30",
   morningCheckInEnd: "08:45",
   lunchStartTime: "12:30",
-  lunchReturnDeadline: "14:30",
+  lunchReturnDeadline: "13:30",
   workEndTime: "17:30",
   gracePeriodMinutes: 15,
 };
@@ -84,18 +84,21 @@ export function calculateLocalSteps(
   now: Date,
   settings: SystemSettings
 ): Record<PunchType, StepSchedule> {
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const currentSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
 
-  const parseToMinutes = (timeStr: string) => {
-    const [h, m] = timeStr.split(":");
-    return parseInt(h, 10) * 60 + parseInt(m, 10);
+  const parseToSeconds = (timeStr: string) => {
+    const parts = timeStr.split(":");
+    const h = parseInt(parts[0] || "0", 10);
+    const m = parseInt(parts[1] || "0", 10);
+    const s = parseInt(parts[2] || "0", 10);
+    return h * 3600 + m * 60 + s;
   };
 
-  const morningStart = parseToMinutes(settings.morningCheckInStart);
-  const morningEnd = parseToMinutes(settings.morningCheckInEnd);
-  const lunchStart = parseToMinutes(settings.lunchStartTime);
-  const lunchReturnDeadline = parseToMinutes(settings.lunchReturnDeadline);
-  const finalOutStart = parseToMinutes(settings.workEndTime);
+  const morningStart = parseToSeconds(settings.morningCheckInStart);
+  const morningEnd = parseToSeconds(settings.morningCheckInEnd);
+  const lunchStart = parseToSeconds(settings.lunchStartTime);
+  const lunchReturnDeadline = parseToSeconds(settings.lunchReturnDeadline);
+  const finalOutStart = parseToSeconds(settings.workEndTime);
 
   const hasMorningIn = !!attendance?.morningIn;
   const hasLunchOut = !!attendance?.lunchOut;
@@ -112,9 +115,9 @@ export function calculateLocalSteps(
   // Morning In
   if (hasMorningIn) {
     steps.MORNING_IN.message = "Morning check-in recorded";
-  } else if (currentMinutes < morningStart) {
+  } else if (currentSeconds < morningStart) {
     steps.MORNING_IN.message = `Check-in available from ${formatToAmPm(settings.morningCheckInStart)}`;
-  } else if (currentMinutes <= morningEnd) {
+  } else if (currentSeconds <= morningEnd) {
     steps.MORNING_IN.enabled = true;
     steps.MORNING_IN.message = `Check in now (${formatToAmPm(settings.morningCheckInStart)} - ${formatToAmPm(settings.morningCheckInEnd)})`;
   } else {
@@ -125,7 +128,7 @@ export function calculateLocalSteps(
   // Lunch Out (independent - no morning check-in required)
   if (hasLunchOut) {
     steps.LUNCH_OUT.message = "Lunch out recorded";
-  } else if (currentMinutes < lunchStart) {
+  } else if (currentSeconds < lunchStart) {
     steps.LUNCH_OUT.message = `Lunch out available after ${formatToAmPm(settings.lunchStartTime)}`;
   } else {
     steps.LUNCH_OUT.enabled = true;
@@ -139,9 +142,9 @@ export function calculateLocalSteps(
     steps.LUNCH_RETURN.message = "Lunch return recorded";
   } else {
     steps.LUNCH_RETURN.enabled = true;
-    if (currentMinutes <= lunchReturnDeadline) {
+    if (currentSeconds <= lunchReturnDeadline) {
       steps.LUNCH_RETURN.message = `Return before ${formatToAmPm(settings.lunchReturnDeadline)}`;
-    } else if (currentMinutes <= lunchReturnDeadline + settings.gracePeriodMinutes) {
+    } else if (currentSeconds <= lunchReturnDeadline + settings.gracePeriodMinutes * 60) {
       steps.LUNCH_RETURN.message = "Lunch return (grace period)";
     } else {
       steps.LUNCH_RETURN.message = "Lunch return (marked late)";
@@ -151,7 +154,7 @@ export function calculateLocalSteps(
   // Final Out (independent - no lunch return required)
   if (hasFinalOut) {
     steps.FINAL_OUT.message = "Final checkout recorded";
-  } else if (currentMinutes < finalOutStart) {
+  } else if (currentSeconds < finalOutStart) {
     steps.FINAL_OUT.message = `Checkout available after ${formatToAmPm(settings.workEndTime)}`;
   } else {
     steps.FINAL_OUT.enabled = true;
@@ -164,28 +167,31 @@ export function calculateLocalSteps(
 function getStepBadge(
   punch: PunchType,
   attendance: Attendance | null,
-  currentMinutes: number,
+  currentSeconds: number,
   settings: SystemSettings
 ): { label: string; color: string } {
-  const parseToMinutes = (timeStr: string) => {
-    const [h, m] = timeStr.split(":");
-    return parseInt(h, 10) * 60 + parseInt(m, 10);
+  const parseToSeconds = (timeStr: string) => {
+    const parts = timeStr.split(":");
+    const h = parseInt(parts[0] || "0", 10);
+    const m = parseInt(parts[1] || "0", 10);
+    const s = parseInt(parts[2] || "0", 10);
+    return h * 3600 + m * 60 + s;
   };
 
-  const morningEnd = parseToMinutes(settings.morningCheckInEnd);
-  const lunchReturnDeadline = parseToMinutes(settings.lunchReturnDeadline);
+  const morningEnd = parseToSeconds(settings.morningCheckInEnd);
+  const lunchReturnDeadline = parseToSeconds(settings.lunchReturnDeadline);
 
   switch (punch) {
     case "MORNING_IN": {
       if (attendance?.morningIn) {
         const morningDate = new Date(attendance.morningIn);
-        const mins = morningDate.getHours() * 60 + morningDate.getMinutes();
-        if (mins > morningEnd) {
+        const secs = morningDate.getHours() * 3600 + morningDate.getMinutes() * 60 + morningDate.getSeconds();
+        if (secs > morningEnd) {
           return { label: "Late", color: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60" };
         }
         return { label: "Present", color: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60" };
       }
-      if (currentMinutes > morningEnd) {
+      if (currentSeconds > morningEnd) {
         return { label: "Absent", color: "bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60" };
       }
       return { label: "Waiting", color: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60" };
@@ -199,8 +205,8 @@ function getStepBadge(
     case "LUNCH_RETURN": {
       if (attendance?.lunchReturn) {
         const returnDate = new Date(attendance.lunchReturn);
-        const mins = returnDate.getHours() * 60 + returnDate.getMinutes();
-        if (mins > lunchReturnDeadline) {
+        const secs = returnDate.getHours() * 3600 + returnDate.getMinutes() * 60 + returnDate.getSeconds();
+        if (secs > lunchReturnDeadline) {
           return { label: "Late", color: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60" };
         }
         return { label: "Completed", color: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60" };
@@ -208,7 +214,7 @@ function getStepBadge(
       if (!attendance?.lunchOut) {
         return { label: "Locked", color: "bg-slate-500/10 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800/60" };
       }
-      if (currentMinutes > lunchReturnDeadline) {
+      if (currentSeconds > lunchReturnDeadline) {
         return { label: "Late", color: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60" };
       }
       return { label: "Waiting", color: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60" };
@@ -231,7 +237,7 @@ function PunchCard({
   setLoading,
   setError,
   settings,
-  currentMinutes,
+  currentSeconds,
   onMorningWindowClosed,
 }: {
   punch: PunchType;
@@ -242,7 +248,7 @@ function PunchCard({
   setLoading: (value: boolean) => void;
   setError: (value: string | null) => void;
   settings: SystemSettings;
-  currentMinutes: number;
+  currentSeconds: number;
   onMorningWindowClosed?: () => void;
 }) {
   const config = STEP_CONFIG[punch];
@@ -275,7 +281,7 @@ function PunchCard({
     }
   };
 
-  const badge = getStepBadge(punch, attendance, currentMinutes, settings);
+  const badge = getStepBadge(punch, attendance, currentSeconds, settings);
 
   let subtitle = "";
   if (punch === "MORNING_IN") {
@@ -438,12 +444,29 @@ export function AttendancePanel({ attendance, schedule, onUpdate, settings: sett
     ? { ...schedule, steps }
     : schedule;
 
-  const currentMinutes = currentTime 
-    ? (currentTime.getHours() * 60 + currentTime.getMinutes()) 
+  const currentSeconds = currentTime 
+    ? (currentTime.getHours() * 3600 + currentTime.getMinutes() * 60 + currentTime.getSeconds()) 
     : 0;
 
-  // Overall attendance status
-  const overallStatus: AttendanceStatus = attendance?.status || "PENDING";
+  const parseToSeconds = (timeStr: string) => {
+    const parts = timeStr.split(":");
+    const h = parseInt(parts[0] || "0", 10);
+    const m = parseInt(parts[1] || "0", 10);
+    const s = parseInt(parts[2] || "0", 10);
+    return h * 3600 + m * 60 + s;
+  };
+
+  const morningEndSec = parseToSeconds(settings.morningCheckInEnd);
+
+  // Overall attendance status computation ensuring consistency
+  let overallStatus: AttendanceStatus = attendance?.status || "PENDING";
+  if (!attendance?.morningIn && !attendance?.lunchOut && !attendance?.lunchReturn && !attendance?.finalOut) {
+    if (currentSeconds > morningEndSec) {
+      overallStatus = "ABSENT";
+    } else {
+      overallStatus = "PENDING";
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -505,7 +528,7 @@ export function AttendancePanel({ attendance, schedule, onUpdate, settings: sett
             setLoading={setLoading}
             setError={setError}
             settings={settings}
-            currentMinutes={currentMinutes}
+            currentSeconds={currentSeconds}
             onMorningWindowClosed={() => setShowClosedToast(true)}
           />
         ))}
